@@ -18,7 +18,7 @@ jobs:
 
       - name: Restore v0.3 source
         run: |
-          cat payload6/part00 payload6/part01 payload6/part02 payload6/part03 payload6/part04 payload6/part05 payload6/part06 payload6/part07 payload6/part08 > project.b64
+          cat payload6/part00 payload6/part01a payload6/part01b payload6/part01c payload6/part02 payload6/part03 payload6/part04 payload6/part05 payload6/part06 payload6/part07 payload6/part08 > project.b64
           test "$(wc -c < project.b64)" -eq 48612
           echo '6eafb1d0b1e2c8b67993142a60c6d03b0c42ab5a8ec3a4c39d1ff785dfbef5fb  project.b64' | sha256sum -c -
           base64 -d project.b64 > project.tgz
