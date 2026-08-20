@@ -29,6 +29,21 @@ jobs:
           test -f rooznegar-android/app/build.gradle.kts
           grep -q '0.3.0-fast' rooznegar-android/app/build.gradle.kts
 
+      - name: Stabilize Room schema processing
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          build = Path('rooznegar-android/app/build.gradle.kts')
+          text = build.read_text()
+          text = text.replace('\nksp { arg("room.schemaLocation", "$projectDir/schemas") }\n', '\n')
+          build.write_text(text)
+          db = Path('rooznegar-android/app/src/main/java/ir/rooznegar/app/data/AppDatabase.kt')
+          text = db.read_text().replace('exportSchema = true', 'exportSchema = false')
+          db.write_text(text)
+          PY
+          rm -rf rooznegar-android/app/schemas
+          grep -q 'exportSchema = false' rooznegar-android/app/src/main/java/ir/rooznegar/app/data/AppDatabase.kt
+
       - name: Add pinned Vazirmatn fonts
         run: |
           mkdir -p rooznegar-android/app/src/main/res/font
@@ -52,9 +67,13 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Test and build optimized release APK
+      - name: Run unit tests
         working-directory: rooznegar-android
-        run: gradle testDebugUnitTest assembleRelease --stacktrace
+        run: gradle testDebugUnitTest --stacktrace --no-parallel
+
+      - name: Build optimized release APK
+        working-directory: rooznegar-android
+        run: gradle assembleRelease --stacktrace --no-parallel
 
       - name: Verify and prepare APK
         run: |
