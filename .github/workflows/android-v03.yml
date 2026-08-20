@@ -1,0 +1,85 @@
+name: Rooznegar v0.3 Fast Real UI
+
+on:
+  pull_request:
+    paths:
+      - 'payload6/**'
+      - '.github/workflows/android-v03.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build_release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore v0.3 source
+        run: |
+          cat payload6/part00 payload6/part01 payload6/part02 payload6/part03 payload6/part04 payload6/part05 payload6/part06 payload6/part07 payload6/part08 > project.b64
+          test "$(wc -c < project.b64)" -eq 48612
+          echo '6eafb1d0b1e2c8b67993142a60c6d03b0c42ab5a8ec3a4c39d1ff785dfbef5fb  project.b64' | sha256sum -c -
+          base64 -d project.b64 > project.tgz
+          echo 'cf52d667c23d6b682f165b64496c566cb3e8cda38f50cb019bce83a752c7eae7  project.tgz' | sha256sum -c -
+          gzip -t project.tgz
+          tar -xzf project.tgz
+          mv rooznegar-android-v03 rooznegar-android
+          test -f rooznegar-android/app/build.gradle.kts
+          grep -q '0.3.0-fast' rooznegar-android/app/build.gradle.kts
+
+      - name: Add pinned Vazirmatn fonts
+        run: |
+          mkdir -p rooznegar-android/app/src/main/res/font
+          curl -L --fail --retry 3 https://raw.githubusercontent.com/rastikerdar/vazirmatn/6e553e33489a8f9dfaccc76860a2e3f3c1e66de7/fonts/ttf/Vazirmatn-Regular.ttf -o rooznegar-android/app/src/main/res/font/vazirmatn_regular.ttf
+          curl -L --fail --retry 3 https://raw.githubusercontent.com/rastikerdar/vazirmatn/6e553e33489a8f9dfaccc76860a2e3f3c1e66de7/fonts/ttf/Vazirmatn-Medium.ttf -o rooznegar-android/app/src/main/res/font/vazirmatn_medium.ttf
+          curl -L --fail --retry 3 https://raw.githubusercontent.com/rastikerdar/vazirmatn/6e553e33489a8f9dfaccc76860a2e3f3c1e66de7/fonts/ttf/Vazirmatn-Bold.ttf -o rooznegar-android/app/src/main/res/font/vazirmatn_bold.ttf
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Test and build optimized release APK
+        working-directory: rooznegar-android
+        run: gradle testDebugUnitTest assembleRelease --stacktrace
+
+      - name: Verify and prepare APK
+        run: |
+          cp rooznegar-android/app/build/outputs/apk/release/app-release.apk Rooznegar-v0.3-fast.apk
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs Rooznegar-v0.3-fast.apk
+          sha256sum Rooznegar-v0.3-fast.apk | tee Rooznegar-v0.3-fast.sha256
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view rooznegar-v0.3 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload rooznegar-v0.3 Rooznegar-v0.3-fast.apk Rooznegar-v0.3-fast.sha256 --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create rooznegar-v0.3 Rooznegar-v0.3-fast.apk Rooznegar-v0.3-fast.sha256 \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "${{ github.event.pull_request.head.sha }}" \
+              --title "Rooznegar v0.3 Fast Real UI" \
+              --notes "Optimized installable release APK. Real month/week/day calendar, data-backed quick add, habits, countdowns, cached Open-Meteo weather, offline prayer calculations, dark mode and Room migration. Test build is debug-key signed."
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Rooznegar-v0.3-fast-apk
+          path: |
+            Rooznegar-v0.3-fast.apk
+            Rooznegar-v0.3-fast.sha256
+          if-no-files-found: error
