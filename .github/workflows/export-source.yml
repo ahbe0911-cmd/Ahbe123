@@ -1,0 +1,35 @@
+name: Export Rooznegar Source
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/export-source.yml'
+      - 'source-export-trigger.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Preserve overlay
+        run: |
+          mkdir -p /tmp/overlay
+          if [ -d rooznegar-android ]; then cp -R rooznegar-android/. /tmp/overlay/; fi
+      - name: Restore full source
+        run: |
+          cat payload5/part00 payload5/part01 payload5/part02 payload5/part03 payload5/part04 payload5/part05 > project.b64
+          base64 -d project.b64 > project.tgz
+          tar -xzf project.tgz
+          if [ -d /tmp/overlay ]; then rsync -a /tmp/overlay/ rooznegar-android/; fi
+          test -f rooznegar-android/app/build.gradle.kts
+      - name: Package source
+        run: tar -czf Rooznegar-full-source.tgz rooznegar-android
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Rooznegar-full-source
+          path: Rooznegar-full-source.tgz
+          if-no-files-found: error
