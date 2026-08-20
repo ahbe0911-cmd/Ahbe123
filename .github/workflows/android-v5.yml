@@ -1,0 +1,47 @@
+name: Rooznegar Android Build APK
+
+on:
+  push:
+    paths:
+      - 'payload5/**'
+      - '.github/workflows/android-v5.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore source project
+        run: |
+          cat payload5/part00 payload5/part01 payload5/part02 payload5/part03 payload5/part04 payload5/part05 > project.b64
+          test "$(wc -c < project.b64)" -eq 27852
+          base64 -d project.b64 > project.tgz
+          gzip -t project.tgz
+          tar -xzf project.tgz
+          test -f rooznegar-android/app/build.gradle.kts
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Test and build debug APK
+        working-directory: rooznegar-android
+        run: gradle testDebugUnitTest assembleDebug --stacktrace
+      - name: Prepare APK
+        run: cp rooznegar-android/app/build/outputs/apk/debug/app-debug.apk Rooznegar-debug.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Rooznegar-debug-apk
+          path: Rooznegar-debug.apk
+          if-no-files-found: error
