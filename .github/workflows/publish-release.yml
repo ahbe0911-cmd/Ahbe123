@@ -1,0 +1,43 @@
+name: Publish Rooznegar APK Release
+
+on:
+  push:
+    paths:
+      - '.github/workflows/publish-release.yml'
+      - 'release-trigger.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download built APK artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p release_asset
+          gh run download 32403008932 \
+            --repo "$GITHUB_REPOSITORY" \
+            --name Rooznegar-redesign-debug-apk \
+            --dir release_asset
+          test -f release_asset/Rooznegar-redesign-v0.2.apk
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view rooznegar-v0.2 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload rooznegar-v0.2 release_asset/Rooznegar-redesign-v0.2.apk --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create rooznegar-v0.2 release_asset/Rooznegar-redesign-v0.2.apk \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "Rooznegar v0.2 Redesign" \
+              --notes "Redesigned debug APK with Vazirmatn typography and performance improvements."
+          fi
