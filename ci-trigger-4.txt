@@ -1,0 +1,1 @@
+Rooznegar MVP compile validation with verified payload chunks
