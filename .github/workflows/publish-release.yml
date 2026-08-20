@@ -5,6 +5,8 @@ on:
     paths:
       - '.github/workflows/publish-release.yml'
       - 'release-trigger.txt'
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
 
 permissions:
@@ -13,6 +15,7 @@ permissions:
 
 jobs:
   publish:
+    if: github.event_name != 'pull_request' || github.head_ref == 'release-rooznegar-v0.2'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
