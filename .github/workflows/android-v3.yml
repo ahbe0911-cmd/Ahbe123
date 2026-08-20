@@ -1,0 +1,35 @@
+name: Rooznegar Android CI v3
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore project
+        run: |
+          cat payload2/part00 payloadfix/c1_0 payloadfix/c1_1 payloadfix/c1_2 payloadfix/c1_3 payload2/part02 payloadfix/c3_0 payloadfix/c3_1 payloadfix/c3_2 payloadfix/c3_3 | base64 -d > project.tgz
+          tar -xzf project.tgz
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Test and build
+        working-directory: rooznegar-android
+        run: gradle testDebugUnitTest assembleDebug --stacktrace
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rooznegar-debug-apk-v3
+          path: rooznegar-android/app/build/outputs/apk/debug/app-debug.apk
