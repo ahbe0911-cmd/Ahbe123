@@ -1,9 +1,10 @@
-name: Rooznegar v0.3 Fast Real UI
+name: Rooznegar v0.3.1 Calendar Notes
 
 on:
   pull_request:
     paths:
       - 'payload6/**'
+      - 'payload7/**'
       - '.github/workflows/android-v03.yml'
   workflow_dispatch:
 
@@ -26,25 +27,29 @@ jobs:
           gzip -t project.tgz
           tar -xzf project.tgz
           mv rooznegar-android-v03 rooznegar-android
-          test -f rooznegar-android/app/build.gradle.kts
-          grep -q '0.3.0-fast' rooznegar-android/app/build.gradle.kts
+
+      - name: Apply dated-note calendar patch
+        run: |
+          echo '556c4dab3f19fa2391c7febe5bd65bd4d5c78777baf89bc201fc33d1ef4fa055  payload7/v031-patch.tgz' | sha256sum -c -
+          gzip -t payload7/v031-patch.tgz
+          tar -xzf payload7/v031-patch.tgz -C rooznegar-android
+          grep -q '0.3.1-calendar-notes' rooznegar-android/app/build.gradle.kts
+          grep -q 'dateEpochDay' rooznegar-android/app/src/main/java/ir/rooznegar/app/data/AppDatabase.kt
+          grep -q 'DayNoteSheet' rooznegar-android/app/src/main/java/ir/rooznegar/app/ui/screens/CalendarScreen.kt
 
       - name: Stabilize Room schema processing
         run: |
+          rm -rf rooznegar-android/app/schemas
           python3 - <<'PY'
           from pathlib import Path
-          build = Path('rooznegar-android/app/build.gradle.kts')
-          text = build.read_text()
-          text = text.replace('\nksp { arg("room.schemaLocation", "$projectDir/schemas") }\n', '\n')
-          build.write_text(text)
+          p = Path('rooznegar-android/app/build.gradle.kts')
+          s = p.read_text().replace('\nksp { arg("room.schemaLocation", "$projectDir/schemas") }\n', '\n')
+          p.write_text(s)
           db = Path('rooznegar-android/app/src/main/java/ir/rooznegar/app/data/AppDatabase.kt')
-          text = db.read_text().replace('exportSchema = true', 'exportSchema = false')
-          db.write_text(text)
+          db.write_text(db.read_text().replace('exportSchema = true', 'exportSchema = false'))
           PY
-          rm -rf rooznegar-android/app/schemas
-          grep -q 'exportSchema = false' rooznegar-android/app/src/main/java/ir/rooznegar/app/data/AppDatabase.kt
 
-      - name: Add pinned Vazirmatn fonts
+      - name: Add Vazirmatn fonts
         run: |
           mkdir -p rooznegar-android/app/src/main/res/font
           curl -L --fail --retry 3 https://raw.githubusercontent.com/rastikerdar/vazirmatn/6e553e33489a8f9dfaccc76860a2e3f3c1e66de7/fonts/ttf/Vazirmatn-Regular.ttf -o rooznegar-android/app/src/main/res/font/vazirmatn_regular.ttf
@@ -55,50 +60,42 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-
       - uses: android-actions/setup-android@v3
-
       - name: Install Android SDK
         run: |
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
-
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
-      - name: Run unit tests
+      - name: Test
         working-directory: rooznegar-android
         run: gradle testDebugUnitTest --stacktrace --no-parallel
-
       - name: Build optimized release APK
         working-directory: rooznegar-android
         run: gradle assembleRelease --stacktrace --no-parallel
 
-      - name: Verify and prepare APK
+      - name: Verify APK
         run: |
-          cp rooznegar-android/app/build/outputs/apk/release/app-release.apk Rooznegar-v0.3-fast.apk
-          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs Rooznegar-v0.3-fast.apk
-          sha256sum Rooznegar-v0.3-fast.apk | tee Rooznegar-v0.3-fast.sha256
+          cp rooznegar-android/app/build/outputs/apk/release/app-release.apk Rooznegar-v0.3.1-calendar-notes.apk
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs Rooznegar-v0.3.1-calendar-notes.apk
+          sha256sum Rooznegar-v0.3.1-calendar-notes.apk | tee Rooznegar-v0.3.1-calendar-notes.sha256
 
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view rooznegar-v0.3 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload rooznegar-v0.3 Rooznegar-v0.3-fast.apk Rooznegar-v0.3-fast.sha256 --repo "$GITHUB_REPOSITORY" --clobber
+          if gh release view rooznegar-v0.3.1 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload rooznegar-v0.3.1 Rooznegar-v0.3.1-calendar-notes.apk Rooznegar-v0.3.1-calendar-notes.sha256 --repo "$GITHUB_REPOSITORY" --clobber
           else
-            gh release create rooznegar-v0.3 Rooznegar-v0.3-fast.apk Rooznegar-v0.3-fast.sha256 \
-              --repo "$GITHUB_REPOSITORY" \
-              --target "${{ github.event.pull_request.head.sha }}" \
-              --title "Rooznegar v0.3 Fast Real UI" \
-              --notes "Optimized installable release APK. Real month/week/day calendar, data-backed quick add, habits, countdowns, cached Open-Meteo weather, offline prayer calculations, dark mode and Room migration. Test build is debug-key signed."
+            gh release create rooznegar-v0.3.1 Rooznegar-v0.3.1-calendar-notes.apk Rooznegar-v0.3.1-calendar-notes.sha256 --repo "$GITHUB_REPOSITORY" --target "${{ github.event.pull_request.head.sha }}" --title "Rooznegar v0.3.1 Calendar Notes" --notes "Tap any Persian-calendar day to open a dated-note sheet. Notes are stored for that exact date and shown under the selected day and in Notes. Calendar spacing is more compact."
           fi
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Rooznegar-v0.3-fast-apk
+          name: Rooznegar-v0.3.1-calendar-notes-apk
           path: |
-            Rooznegar-v0.3-fast.apk
-            Rooznegar-v0.3-fast.sha256
+            Rooznegar-v0.3.1-calendar-notes.apk
+            Rooznegar-v0.3.1-calendar-notes.sha256
           if-no-files-found: error
