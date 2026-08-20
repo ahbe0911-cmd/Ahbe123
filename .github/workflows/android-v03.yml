@@ -1,10 +1,11 @@
-name: Rooznegar v0.3.1 Calendar Notes
+name: Rooznegar v0.3.2 Weather Popup
 
 on:
   pull_request:
     paths:
       - 'payload6/**'
       - 'payload7b/**'
+      - 'payload8/**'
       - '.github/workflows/android-v03.yml'
   workflow_dispatch:
 
@@ -38,8 +39,19 @@ jobs:
           gzip -t patch.tgz
           tar -xzf patch.tgz -C rooznegar-android
           grep -q '0.3.1-calendar-notes' rooznegar-android/app/build.gradle.kts
-          grep -q 'dateEpochDay' rooznegar-android/app/src/main/java/ir/rooznegar/app/data/AppDatabase.kt
-          grep -q 'DayNoteSheet' rooznegar-android/app/src/main/java/ir/rooznegar/app/ui/screens/CalendarScreen.kt
+
+      - name: Apply Dozin weather popup patch
+        run: |
+          cat payload8/part00 payload8/part01 payload8/part02 payload8/part03 > weather.b64
+          test "$(wc -c < weather.b64)" -eq 16396
+          echo '49f57109a90190daf213dcf638285230fbc64a294b00d1e3486d72c556dc0458  weather.b64' | sha256sum -c -
+          base64 -d weather.b64 > weather.tgz
+          echo 'a4bf0dedfb5bce0a9394032ec6b754a1e134c7faa246ef4c85100a664a7c8f4e  weather.tgz' | sha256sum -c -
+          gzip -t weather.tgz
+          tar -xzf weather.tgz -C rooznegar-android
+          grep -q '0.3.2-weather-popup' rooznegar-android/app/build.gradle.kts
+          grep -q 'WeatherDetailsDialog' rooznegar-android/app/src/main/java/ir/rooznegar/app/ui/screens/TodayScreen.kt
+          grep -q 'CityOption("dozin"' rooznegar-android/app/src/main/java/ir/rooznegar/app/core/location/Cities.kt
 
       - name: Stabilize Room schema processing
         run: |
@@ -82,24 +94,24 @@ jobs:
 
       - name: Verify APK
         run: |
-          cp rooznegar-android/app/build/outputs/apk/release/app-release.apk Rooznegar-v0.3.1-calendar-notes.apk
-          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs Rooznegar-v0.3.1-calendar-notes.apk
-          sha256sum Rooznegar-v0.3.1-calendar-notes.apk | tee Rooznegar-v0.3.1-calendar-notes.sha256
+          cp rooznegar-android/app/build/outputs/apk/release/app-release.apk Rooznegar-v0.3.2-weather-popup.apk
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs Rooznegar-v0.3.2-weather-popup.apk
+          sha256sum Rooznegar-v0.3.2-weather-popup.apk | tee Rooznegar-v0.3.2-weather-popup.sha256
 
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view rooznegar-v0.3.1 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload rooznegar-v0.3.1 Rooznegar-v0.3.1-calendar-notes.apk Rooznegar-v0.3.1-calendar-notes.sha256 --repo "$GITHUB_REPOSITORY" --clobber
+          if gh release view rooznegar-v0.3.2 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload rooznegar-v0.3.2 Rooznegar-v0.3.2-weather-popup.apk Rooznegar-v0.3.2-weather-popup.sha256 --repo "$GITHUB_REPOSITORY" --clobber
           else
-            gh release create rooznegar-v0.3.1 Rooznegar-v0.3.1-calendar-notes.apk Rooznegar-v0.3.1-calendar-notes.sha256 --repo "$GITHUB_REPOSITORY" --target "${{ github.event.pull_request.head.sha }}" --title "Rooznegar v0.3.1 Calendar Notes" --notes "Tap any Persian-calendar day to open a dated-note sheet. Notes are stored for that exact date and shown under the selected day and in Notes. Calendar spacing is more compact."
+            gh release create rooznegar-v0.3.2 Rooznegar-v0.3.2-weather-popup.apk Rooznegar-v0.3.2-weather-popup.sha256 --repo "$GITHUB_REPOSITORY" --target "${{ github.event.pull_request.head.sha }}" --title "Rooznegar v0.3.2 Weather Popup" --notes "Weather card opens a detailed popup. Dozin, Golestan is added as the default location for this update. Details include current/apparent/min/max temperature, humidity, wind, precipitation, cloud cover, update time and manual refresh, backed by Open-Meteo with a 20-minute cache."
           fi
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Rooznegar-v0.3.1-calendar-notes-apk
+          name: Rooznegar-v0.3.2-weather-popup-apk
           path: |
-            Rooznegar-v0.3.1-calendar-notes.apk
-            Rooznegar-v0.3.1-calendar-notes.sha256
+            Rooznegar-v0.3.2-weather-popup.apk
+            Rooznegar-v0.3.2-weather-popup.sha256
           if-no-files-found: error
