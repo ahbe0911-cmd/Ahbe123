@@ -15,7 +15,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Restore project
         run: |
-          base64 -d project.b64 > project.tgz
+          cat payload/part00 payload/part01 payload/part02 payload/part03 | base64 -d > project.tgz
           tar -xzf project.tgz
       - uses: actions/setup-java@v4
         with:
