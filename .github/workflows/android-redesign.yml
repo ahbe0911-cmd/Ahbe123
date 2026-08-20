@@ -1,0 +1,68 @@
+name: Rooznegar Redesign Build
+
+on:
+  pull_request:
+    paths:
+      - 'rooznegar-android/**'
+      - '.github/workflows/android-redesign.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Preserve redesign overlay
+        run: |
+          mkdir -p /tmp/rooznegar-overlay
+          cp -R rooznegar-android/. /tmp/rooznegar-overlay/
+
+      - name: Restore complete MVP source
+        run: |
+          cat payload5/part00 payload5/part01 payload5/part02 payload5/part03 payload5/part04 payload5/part05 > project.b64
+          test "$(wc -c < project.b64)" -eq 27852
+          base64 -d project.b64 > project.tgz
+          gzip -t project.tgz
+          tar -xzf project.tgz
+          rsync -a /tmp/rooznegar-overlay/ rooznegar-android/
+          test -f rooznegar-android/app/src/main/java/ir/rooznegar/app/ui/screens/TodayScreen.kt
+
+      - name: Add pinned Vazirmatn fonts
+        run: |
+          mkdir -p rooznegar-android/app/src/main/res/font
+          curl -L --fail --retry 3 https://raw.githubusercontent.com/rastikerdar/vazirmatn/6e553e33489a8f9dfaccc76860a2e3f3c1e66de7/fonts/ttf/Vazirmatn-Regular.ttf -o rooznegar-android/app/src/main/res/font/vazirmatn_regular.ttf
+          curl -L --fail --retry 3 https://raw.githubusercontent.com/rastikerdar/vazirmatn/6e553e33489a8f9dfaccc76860a2e3f3c1e66de7/fonts/ttf/Vazirmatn-Medium.ttf -o rooznegar-android/app/src/main/res/font/vazirmatn_medium.ttf
+          curl -L --fail --retry 3 https://raw.githubusercontent.com/rastikerdar/vazirmatn/6e553e33489a8f9dfaccc76860a2e3f3c1e66de7/fonts/ttf/Vazirmatn-Bold.ttf -o rooznegar-android/app/src/main/res/font/vazirmatn_bold.ttf
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Test and build redesigned APK
+        working-directory: rooznegar-android
+        run: gradle testDebugUnitTest assembleDebug --stacktrace
+
+      - name: Prepare APK
+        run: cp rooznegar-android/app/build/outputs/apk/debug/app-debug.apk Rooznegar-redesign-debug.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Rooznegar-redesign-debug-apk
+          path: Rooznegar-redesign-debug.apk
+          if-no-files-found: error
