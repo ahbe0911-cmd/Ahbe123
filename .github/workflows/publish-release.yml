@@ -25,10 +25,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p release_asset
-          gh run download 32403008932 \
-            --repo "$GITHUB_REPOSITORY" \
-            --name Rooznegar-redesign-debug-apk \
-            --dir release_asset
+          curl --fail --location \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/9419249491/zip" \
+            -o artifact.zip
+          unzip -o artifact.zip -d release_asset
+          ls -lah release_asset
           test -f release_asset/Rooznegar-redesign-v0.2.apk
 
       - name: Publish GitHub Release
