@@ -4,7 +4,7 @@ on:
   pull_request:
     paths:
       - 'payload6/**'
-      - 'payload7/**'
+      - 'payload7b/**'
       - '.github/workflows/android-v03.yml'
   workflow_dispatch:
 
@@ -30,9 +30,13 @@ jobs:
 
       - name: Apply dated-note calendar patch
         run: |
-          echo '556c4dab3f19fa2391c7febe5bd65bd4d5c78777baf89bc201fc33d1ef4fa055  payload7/v031-patch.tgz' | sha256sum -c -
-          gzip -t payload7/v031-patch.tgz
-          tar -xzf payload7/v031-patch.tgz -C rooznegar-android
+          cat payload7b/part00 payload7b/part01 payload7b/part02 payload7b/part03 > patch.b64
+          test "$(wc -c < patch.b64)" -eq 14388
+          echo '99e659a3b8c90b9bd432b1a11eee3231d05dae6d6e2496f15bf381f16fa07f4c  patch.b64' | sha256sum -c -
+          base64 -d patch.b64 > patch.tgz
+          echo '556c4dab3f19fa2391c7febe5bd65bd4d5c78777baf89bc201fc33d1ef4fa055  patch.tgz' | sha256sum -c -
+          gzip -t patch.tgz
+          tar -xzf patch.tgz -C rooznegar-android
           grep -q '0.3.1-calendar-notes' rooznegar-android/app/build.gradle.kts
           grep -q 'dateEpochDay' rooznegar-android/app/src/main/java/ir/rooznegar/app/data/AppDatabase.kt
           grep -q 'DayNoteSheet' rooznegar-android/app/src/main/java/ir/rooznegar/app/ui/screens/CalendarScreen.kt
