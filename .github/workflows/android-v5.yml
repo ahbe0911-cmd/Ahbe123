@@ -5,6 +5,7 @@ on:
     paths:
       - 'payload5/**'
       - '.github/workflows/android-v5.yml'
+  pull_request:
   workflow_dispatch:
 
 permissions:
