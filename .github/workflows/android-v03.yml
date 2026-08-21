@@ -1,0 +1,171 @@
+name: Rooznegar v0.3.7 Clock Face
+
+on:
+  pull_request:
+    paths:
+      - 'payload6/**'
+      - 'payload7b/**'
+      - 'payload8/**'
+      - 'payload9/**'
+      - 'payload10/**'
+      - 'payload11/**'
+      - 'payload12/**'
+      - 'payload13/**'
+      - 'payload14/**'
+      - '.github/workflows/android-v03.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build_release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore base v0.3 source
+        run: |
+          cat payload6/part00 payload6/part01a payload6/part01b payload6/part01c payload6/part02 payload6/part03 payload6/part04 payload6/part05 payload6/part06 payload6/part07 payload6/part08 > project.b64
+          test "$(wc -c < project.b64)" -eq 48612
+          echo '6eafb1d0b1e2c8b67993142a60c6d03b0c42ab5a8ec3a4c39d1ff785dfbef5fb  project.b64' | sha256sum -c -
+          base64 -d project.b64 > project.tgz
+          echo 'cf52d667c23d6b682f165b64496c566cb3e8cda38f50cb019bce83a752c7eae7  project.tgz' | sha256sum -c -
+          gzip -t project.tgz
+          tar -xzf project.tgz
+          mv rooznegar-android-v03 rooznegar-android
+
+      - name: Apply calendar notes patch
+        run: |
+          cat payload7b/part00 payload7b/part01 payload7b/part02 payload7b/part03 > patch.b64
+          test "$(wc -c < patch.b64)" -eq 14388
+          echo '99e659a3b8c90b9bd432b1a11eee3231d05dae6d6e2496f15bf381f16fa07f4c  patch.b64' | sha256sum -c -
+          base64 -d patch.b64 > patch.tgz
+          echo '556c4dab3f19fa2391c7febe5bd65bd4d5c78777baf89bc201fc33d1ef4fa055  patch.tgz' | sha256sum -c -
+          tar -xzf patch.tgz -C rooznegar-android
+
+      - name: Apply v0.3.2 weather patch
+        run: |
+          cat payload8/part00 payload8/part01 payload8/part02 payload8/part03 > weather.b64
+          test "$(wc -c < weather.b64)" -eq 16396
+          echo '49f57109a90190daf213dcf638285230fbc64a294b00d1e3486d72c556dc0458  weather.b64' | sha256sum -c -
+          base64 -d weather.b64 > weather.tgz
+          echo 'a4bf0dedfb5bce0a9394032ec6b754a1e134c7faa246ef4c85100a664a7c8f4e  weather.tgz' | sha256sum -c -
+          tar -xzf weather.tgz -C rooznegar-android
+
+      - name: Apply v0.3.3 home weather redesign
+        run: |
+          cat payload9/part00 payload9/part01 payload9/part02 payload9/part03 payload9/part04 > v033.b64
+          test "$(wc -c < v033.b64)" -eq 16780
+          echo '05b337bfc3af28eb3381f31216d7e2a2068e31e22e71162ef2c29d5d853ee93d  v033.b64' | sha256sum -c -
+          base64 -d v033.b64 > v033.tgz
+          echo '07dde4bfeb510e95431b6c2938317dbb985d560003587265fdc5ccdbbee66306  v033.tgz' | sha256sum -c -
+          tar -xzf v033.tgz -C rooznegar-android
+
+      - name: Apply v0.3.3 compile fix
+        run: |
+          cat payload10/part00 payload10/part01 payload10/part02 > fix1.b64
+          test "$(wc -c < fix1.b64)" -eq 9136
+          echo '6a720befb74e0afc8d46fc4dbcea585f19709cb077284149d770c5db40722e01  fix1.b64' | sha256sum -c -
+          base64 -d fix1.b64 > fix1.tgz
+          echo 'f68e4a4f095d2d8d6bdc3aa48d62021799c7e2448687cb52a85487587955ca9e  fix1.tgz' | sha256sum -c -
+          tar -xzf fix1.tgz -C rooznegar-android
+
+      - name: Apply v0.3.4 polish
+        run: |
+          echo 'a73acb07d08685c5cd6b351e65342014d7641ccecd252bcca1f6eae8b6888feb  payload11/v034.tgz' | sha256sum -c -
+          gzip -t payload11/v034.tgz
+          tar -xzf payload11/v034.tgz -C rooznegar-android
+          grep -q '0.3.4-polish' rooznegar-android/app/build.gradle.kts
+
+      - name: Apply v0.3.5 centered note dialog
+        run: |
+          cat payload12/part00 payload12/part01 > v035.b64
+          test "$(wc -c < v035.b64)" -eq 8428
+          echo 'a39312b68b44d28e1230d96cec5a573a06b18bbbeebebe7d9eb6074336287fa1  v035.b64' | sha256sum -c -
+          base64 -d v035.b64 > v035.tgz
+          echo '9c3c4f6f0cdd5c0811cb70557ea551e2696b28368d6138ced398cb2cd40038af  v035.tgz' | sha256sum -c -
+          gzip -t v035.tgz
+          tar -xzf v035.tgz -C rooznegar-android
+          grep -q '0.3.5-centered-note' rooznegar-android/app/build.gradle.kts
+
+      - name: Apply v0.3.6 live hourly forecast
+        run: |
+          echo '378df2b31d8b02342b0bb58c71fcf24bc99af9e45132f4f8d770047c9e2cdf96  payload13/v036.tgz' | sha256sum -c -
+          gzip -t payload13/v036.tgz
+          tar -xzf payload13/v036.tgz -C rooznegar-android
+          grep -q '0.3.6-live-hourly' rooznegar-android/app/build.gradle.kts
+          grep -q 'LiveHourlyForecastDial' rooznegar-android/app/src/main/java/ir/rooznegar/app/ui/screens/TodayScreen.kt
+          grep -q 'delay(30_000L)' rooznegar-android/app/src/main/java/ir/rooznegar/app/ui/screens/TodayScreen.kt
+
+      - name: Apply v0.3.7 real clock-face fix
+        run: |
+          echo '30fd047acd2de6693101e2a085335af50300559c7f8d4fe812cdfe153de60255  payload14/v037.tgz' | sha256sum -c -
+          gzip -t payload14/v037.tgz
+          tar -xzf payload14/v037.tgz -C rooznegar-android
+          grep -q '0.3.7-clock-face' rooznegar-android/app/build.gradle.kts
+          grep -q 'val clockHour = localTime.hour % 12' rooznegar-android/app/src/main/java/ir/rooznegar/app/ui/screens/TodayScreen.kt
+          grep -q 'absoluteOffset(x = x, y = y)' rooznegar-android/app/src/main/java/ir/rooznegar/app/ui/screens/TodayScreen.kt
+
+      - name: Stabilize Room schema processing
+        run: |
+          rm -rf rooznegar-android/app/schemas
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('rooznegar-android/app/build.gradle.kts')
+          p.write_text(p.read_text().replace('\nksp { arg("room.schemaLocation", "$projectDir/schemas") }\n', '\n'))
+          db = Path('rooznegar-android/app/src/main/java/ir/rooznegar/app/data/AppDatabase.kt')
+          db.write_text(db.read_text().replace('exportSchema = true', 'exportSchema = false'))
+          PY
+
+      - name: Add Vazirmatn fonts
+        run: |
+          mkdir -p rooznegar-android/app/src/main/res/font
+          curl -L --fail --retry 3 https://raw.githubusercontent.com/rastikerdar/vazirmatn/6e553e33489a8f9dfaccc76860a2e3f3c1e66de7/fonts/ttf/Vazirmatn-Regular.ttf -o rooznegar-android/app/src/main/res/font/vazirmatn_regular.ttf
+          curl -L --fail --retry 3 https://raw.githubusercontent.com/rastikerdar/vazirmatn/6e553e33489a8f9dfaccc76860a2e3f3c1e66de7/fonts/ttf/Vazirmatn-Medium.ttf -o rooznegar-android/app/src/main/res/font/vazirmatn_medium.ttf
+          curl -L --fail --retry 3 https://raw.githubusercontent.com/rastikerdar/vazirmatn/6e553e33489a8f9dfaccc76860a2e3f3c1e66de7/fonts/ttf/Vazirmatn-Bold.ttf -o rooznegar-android/app/src/main/res/font/vazirmatn_bold.ttf
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Test
+        working-directory: rooznegar-android
+        run: gradle testDebugUnitTest --stacktrace --no-parallel
+
+      - name: Build optimized release APK
+        working-directory: rooznegar-android
+        run: gradle assembleRelease --stacktrace --no-parallel
+
+      - name: Verify APK
+        run: |
+          cp rooznegar-android/app/build/outputs/apk/release/app-release.apk Rooznegar-v0.3.7-clock-face.apk
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs Rooznegar-v0.3.7-clock-face.apk
+          sha256sum Rooznegar-v0.3.7-clock-face.apk | tee Rooznegar-v0.3.7-clock-face.sha256
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view rooznegar-v0.3.7 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload rooznegar-v0.3.7 Rooznegar-v0.3.7-clock-face.apk Rooznegar-v0.3.7-clock-face.sha256 --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create rooznegar-v0.3.7 Rooznegar-v0.3.7-clock-face.apk Rooznegar-v0.3.7-clock-face.sha256 --repo "$GITHUB_REPOSITORY" --target "${{ github.event.pull_request.head.sha }}" --title "Rooznegar v0.3.7 Clock Face" --notes "Hourly weather dial corrected to a true 12-hour analog clock layout: 12 top, 3 right, 6 bottom, 9 left, remaining hours at exact 30-degree positions. RTL-safe absolute positioning prevents 3/9 mirroring. Dial labels use 12-hour numbers while detail time remains real 24-hour time."
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Rooznegar-v0.3.7-clock-face-apk
+          path: |
+            Rooznegar-v0.3.7-clock-face.apk
+            Rooznegar-v0.3.7-clock-face.sha256
+          if-no-files-found: error
