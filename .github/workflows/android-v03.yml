@@ -7,6 +7,7 @@ on:
       - 'payload7b/**'
       - 'payload8/**'
       - 'payload9/**'
+      - 'payload10/**'
       - '.github/workflows/android-v03.yml'
   workflow_dispatch:
 
@@ -62,6 +63,17 @@ jobs:
           grep -q '0.3.3-home-weather' rooznegar-android/app/build.gradle.kts
           grep -q 'HourlyForecastRow' rooznegar-android/app/src/main/java/ir/rooznegar/app/ui/screens/TodayScreen.kt
           grep -q 'forecast_days=7' rooznegar-android/app/src/main/java/ir/rooznegar/app/core/location/WeatherRepository.kt
+
+      - name: Apply v0.3.3 Compose compile fix
+        run: |
+          cat payload10/part00 payload10/part01 payload10/part02 > fix1.b64
+          test "$(wc -c < fix1.b64)" -eq 9136
+          echo '6a720befb74e0afc8d46fc4dbcea585f19709cb077284149d770c5db40722e01  fix1.b64' | sha256sum -c -
+          base64 -d fix1.b64 > fix1.tgz
+          echo 'f68e4a4f095d2d8d6bdc3aa48d62021799c7e2448687cb52a85487587955ca9e  fix1.tgz' | sha256sum -c -
+          gzip -t fix1.tgz
+          tar -xzf fix1.tgz -C rooznegar-android
+          grep -q 'active.forEach { task -> TimelineTask(task) }' rooznegar-android/app/src/main/java/ir/rooznegar/app/ui/screens/TodayScreen.kt
 
       - name: Stabilize Room schema processing
         run: |
