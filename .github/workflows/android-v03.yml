@@ -1,4 +1,4 @@
-name: Rooznegar v0.3.6 Live Hourly
+name: Rooznegar v0.3.7 Clock Face
 
 on:
   pull_request:
@@ -11,6 +11,7 @@ on:
       - 'payload11/**'
       - 'payload12/**'
       - 'payload13/**'
+      - 'payload14/**'
       - '.github/workflows/android-v03.yml'
   workflow_dispatch:
 
@@ -97,6 +98,15 @@ jobs:
           grep -q 'LiveHourlyForecastDial' rooznegar-android/app/src/main/java/ir/rooznegar/app/ui/screens/TodayScreen.kt
           grep -q 'delay(30_000L)' rooznegar-android/app/src/main/java/ir/rooznegar/app/ui/screens/TodayScreen.kt
 
+      - name: Apply v0.3.7 real clock-face fix
+        run: |
+          echo '30fd047acd2de6693101e2a085335af50300559c7f8d4fe812cdfe153de60255  payload14/v037.tgz' | sha256sum -c -
+          gzip -t payload14/v037.tgz
+          tar -xzf payload14/v037.tgz -C rooznegar-android
+          grep -q '0.3.7-clock-face' rooznegar-android/app/build.gradle.kts
+          grep -q 'val clockHour = localTime.hour % 12' rooznegar-android/app/src/main/java/ir/rooznegar/app/ui/screens/TodayScreen.kt
+          grep -q 'absoluteOffset(x = x, y = y)' rooznegar-android/app/src/main/java/ir/rooznegar/app/ui/screens/TodayScreen.kt
+
       - name: Stabilize Room schema processing
         run: |
           rm -rf rooznegar-android/app/schemas
@@ -138,24 +148,24 @@ jobs:
 
       - name: Verify APK
         run: |
-          cp rooznegar-android/app/build/outputs/apk/release/app-release.apk Rooznegar-v0.3.6-live-hourly.apk
-          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs Rooznegar-v0.3.6-live-hourly.apk
-          sha256sum Rooznegar-v0.3.6-live-hourly.apk | tee Rooznegar-v0.3.6-live-hourly.sha256
+          cp rooznegar-android/app/build/outputs/apk/release/app-release.apk Rooznegar-v0.3.7-clock-face.apk
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs Rooznegar-v0.3.7-clock-face.apk
+          sha256sum Rooznegar-v0.3.7-clock-face.apk | tee Rooznegar-v0.3.7-clock-face.sha256
 
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view rooznegar-v0.3.6 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload rooznegar-v0.3.6 Rooznegar-v0.3.6-live-hourly.apk Rooznegar-v0.3.6-live-hourly.sha256 --repo "$GITHUB_REPOSITORY" --clobber
+          if gh release view rooznegar-v0.3.7 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload rooznegar-v0.3.7 Rooznegar-v0.3.7-clock-face.apk Rooznegar-v0.3.7-clock-face.sha256 --repo "$GITHUB_REPOSITORY" --clobber
           else
-            gh release create rooznegar-v0.3.6 Rooznegar-v0.3.6-live-hourly.apk Rooznegar-v0.3.6-live-hourly.sha256 --repo "$GITHUB_REPOSITORY" --target "${{ github.event.pull_request.head.sha }}" --title "Rooznegar v0.3.6 Live Hourly" --notes "Interactive live hourly weather dial: 12 upcoming hours arranged around a circular clock, live needle updated every 30 seconds, day/night icons based on actual sunrise/sunset, animated current-hour pulse, and tap-to-inspect temperature, apparent temperature, wind, humidity, precipitation and weather condition for each hour."
+            gh release create rooznegar-v0.3.7 Rooznegar-v0.3.7-clock-face.apk Rooznegar-v0.3.7-clock-face.sha256 --repo "$GITHUB_REPOSITORY" --target "${{ github.event.pull_request.head.sha }}" --title "Rooznegar v0.3.7 Clock Face" --notes "Hourly weather dial corrected to a true 12-hour analog clock layout: 12 top, 3 right, 6 bottom, 9 left, remaining hours at exact 30-degree positions. RTL-safe absolute positioning prevents 3/9 mirroring. Dial labels use 12-hour numbers while detail time remains real 24-hour time."
           fi
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Rooznegar-v0.3.6-live-hourly-apk
+          name: Rooznegar-v0.3.7-clock-face-apk
           path: |
-            Rooznegar-v0.3.6-live-hourly.apk
-            Rooznegar-v0.3.6-live-hourly.sha256
+            Rooznegar-v0.3.7-clock-face.apk
+            Rooznegar-v0.3.7-clock-face.sha256
           if-no-files-found: error
