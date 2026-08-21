@@ -30,7 +30,7 @@ jobs:
       - name: Verify CEF runtime
         shell: pwsh
         run: |
-          $out = "webhub-temp\WebHubWin81\bin\Release\net472"
+          $out = "webhub-temp\WebHubWin81\bin\x64\Release\net472"
           if (-not (Test-Path "$out\WebHub.exe")) { throw "WebHub.exe not found" }
           if (-not (Test-Path "$out\libcef.dll")) { throw "libcef.dll not found" }
 
