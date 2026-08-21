@@ -1,4 +1,4 @@
-name: Rooznegar v0.3.3 Home Weather
+name: Rooznegar v0.3.4 Polish
 
 on:
   pull_request:
@@ -8,6 +8,7 @@ on:
       - 'payload8/**'
       - 'payload9/**'
       - 'payload10/**'
+      - 'payload11/**'
       - '.github/workflows/android-v03.yml'
   workflow_dispatch:
 
@@ -60,9 +61,6 @@ jobs:
           echo '07dde4bfeb510e95431b6c2938317dbb985d560003587265fdc5ccdbbee66306  v033.tgz' | sha256sum -c -
           gzip -t v033.tgz
           tar -xzf v033.tgz -C rooznegar-android
-          grep -q '0.3.3-home-weather' rooznegar-android/app/build.gradle.kts
-          grep -q 'HourlyForecastRow' rooznegar-android/app/src/main/java/ir/rooznegar/app/ui/screens/TodayScreen.kt
-          grep -q 'forecast_days=7' rooznegar-android/app/src/main/java/ir/rooznegar/app/core/location/WeatherRepository.kt
 
       - name: Apply v0.3.3 Compose compile fix
         run: |
@@ -73,7 +71,16 @@ jobs:
           echo 'f68e4a4f095d2d8d6bdc3aa48d62021799c7e2448687cb52a85487587955ca9e  fix1.tgz' | sha256sum -c -
           gzip -t fix1.tgz
           tar -xzf fix1.tgz -C rooznegar-android
-          grep -q 'active.forEach { task -> TimelineTask(task) }' rooznegar-android/app/src/main/java/ir/rooznegar/app/ui/screens/TodayScreen.kt
+
+      - name: Apply v0.3.4 polish
+        run: |
+          echo 'a73acb07d08685c5cd6b351e65342014d7641ccecd252bcca1f6eae8b6888feb  payload11/v034.tgz' | sha256sum -c -
+          gzip -t payload11/v034.tgz
+          tar -xzf payload11/v034.tgz -C rooznegar-android
+          grep -q '0.3.4-polish' rooznegar-android/app/build.gradle.kts
+          grep -q 'هواشناسی من' rooznegar-android/app/src/main/java/ir/rooznegar/app/ui/screens/TodayScreen.kt
+          grep -q 'مینودشت، گلستان' rooznegar-android/app/src/main/java/ir/rooznegar/app/ui/screens/PrayerScreen.kt
+          grep -q 'nextMainPrayer' rooznegar-android/app/src/main/java/ir/rooznegar/app/ui/screens/TodayScreen.kt
 
       - name: Stabilize Room schema processing
         run: |
@@ -117,24 +124,24 @@ jobs:
 
       - name: Verify APK
         run: |
-          cp rooznegar-android/app/build/outputs/apk/release/app-release.apk Rooznegar-v0.3.3-home-weather.apk
-          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs Rooznegar-v0.3.3-home-weather.apk
-          sha256sum Rooznegar-v0.3.3-home-weather.apk | tee Rooznegar-v0.3.3-home-weather.sha256
+          cp rooznegar-android/app/build/outputs/apk/release/app-release.apk Rooznegar-v0.3.4-polish.apk
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs Rooznegar-v0.3.4-polish.apk
+          sha256sum Rooznegar-v0.3.4-polish.apk | tee Rooznegar-v0.3.4-polish.sha256
 
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view rooznegar-v0.3.3 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload rooznegar-v0.3.3 Rooznegar-v0.3.3-home-weather.apk Rooznegar-v0.3.3-home-weather.sha256 --repo "$GITHUB_REPOSITORY" --clobber
+          if gh release view rooznegar-v0.3.4 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload rooznegar-v0.3.4 Rooznegar-v0.3.4-polish.apk Rooznegar-v0.3.4-polish.sha256 --repo "$GITHUB_REPOSITORY" --clobber
           else
-            gh release create rooznegar-v0.3.3 Rooznegar-v0.3.3-home-weather.apk Rooznegar-v0.3.3-home-weather.sha256 --repo "$GITHUB_REPOSITORY" --target "${{ github.event.pull_request.head.sha }}" --title "Rooznegar v0.3.3 Home Weather" --notes "Prominent weather card on Home; instant detail popup with current conditions, 24-hour forecast, 7-day forecast, humidity, wind, precipitation, cloud cover, sunrise/sunset and manual refresh. Weather uses cached Open-Meteo data. Home sections collect state independently to reduce Compose recomposition and opening weather details no longer triggers a blocking network refresh."
+            gh release create rooznegar-v0.3.4 Rooznegar-v0.3.4-polish.apk Rooznegar-v0.3.4-polish.sha256 --repo "$GITHUB_REPOSITORY" --target "${{ github.event.pull_request.head.sha }}" --title "Rooznegar v0.3.4 Polish" --notes "Weather card renamed to هواشناسی من; animated live weather details with background refresh; prayer times fixed to Minudasht, Golestan and Home advances Fajr → sunrise → Dhuhr → Maghrib → next-day Fajr automatically; Home timeline and daily-tools sections hidden without removing their underlying features."
           fi
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Rooznegar-v0.3.3-home-weather-apk
+          name: Rooznegar-v0.3.4-polish-apk
           path: |
-            Rooznegar-v0.3.3-home-weather.apk
-            Rooznegar-v0.3.3-home-weather.sha256
+            Rooznegar-v0.3.4-polish.apk
+            Rooznegar-v0.3.4-polish.sha256
           if-no-files-found: error
