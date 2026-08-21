@@ -1,0 +1,13 @@
+<UserControl x:Class="MessengerWorkspace.Controls.FindOverlay"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             FlowDirection="RightToLeft">
+    <Border CornerRadius="16" Background="#F8FFFFFF" BorderBrush="#77FFFFFF" BorderThickness="1" Padding="10">
+        <StackPanel Orientation="Horizontal">
+            <TextBox x:Name="QueryBox" Width="220" Height="28" Margin="4" VerticalContentAlignment="Center"/>
+            <Button Content="بعدی" Width="58" Margin="4" Click="Next_Click"/>
+            <Button Content="قبلی" Width="58" Margin="4" Click="Previous_Click"/>
+            <Button Content="×" Width="30" Margin="4" Click="Close_Click"/>
+        </StackPanel>
+    </Border>
+</UserControl>

@@ -1,0 +1,1 @@
+Publish Rooznegar v0.2 APK release - retry via REST artifact API.
