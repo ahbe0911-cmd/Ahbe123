@@ -1,4 +1,4 @@
-name: Rooznegar v0.3.7 Clock Face
+name: Rooznegar v0.3.8 RTL Clock Fix
 
 on:
   pull_request:
@@ -12,6 +12,7 @@ on:
       - 'payload12/**'
       - 'payload13/**'
       - 'payload14/**'
+      - 'payload15/**'
       - '.github/workflows/android-v03.yml'
   workflow_dispatch:
 
@@ -107,6 +108,18 @@ jobs:
           grep -q 'val clockHour = localTime.hour % 12' rooznegar-android/app/src/main/java/ir/rooznegar/app/ui/screens/TodayScreen.kt
           grep -q 'absoluteOffset(x = x, y = y)' rooznegar-android/app/src/main/java/ir/rooznegar/app/ui/screens/TodayScreen.kt
 
+      - name: Apply v0.3.8 RTL-safe full clock fix
+        run: |
+          cat payload15/part00 payload15/part01 payload15/part02 > v038.b64
+          test "$(wc -c < v038.b64)" -eq 14368
+          base64 -d v038.b64 > v038.tgz
+          echo '527c9dae889110874b51b44dc58f559d6ee9499f8e8ea2cbed2f767f1ae06c1c  v038.tgz' | sha256sum -c -
+          gzip -t v038.tgz
+          tar -xzf v038.tgz -C rooznegar-android
+          grep -q '0.3.8-clock-rtl-fix' rooznegar-android/app/build.gradle.kts
+          grep -q 'LocalLayoutDirection provides LayoutDirection.Ltr' rooznegar-android/app/src/main/java/ir/rooznegar/app/ui/screens/TodayScreen.kt
+          grep -q '.offset(x = x, y = y)' rooznegar-android/app/src/main/java/ir/rooznegar/app/ui/screens/TodayScreen.kt
+
       - name: Stabilize Room schema processing
         run: |
           rm -rf rooznegar-android/app/schemas
@@ -148,24 +161,24 @@ jobs:
 
       - name: Verify APK
         run: |
-          cp rooznegar-android/app/build/outputs/apk/release/app-release.apk Rooznegar-v0.3.7-clock-face.apk
-          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs Rooznegar-v0.3.7-clock-face.apk
-          sha256sum Rooznegar-v0.3.7-clock-face.apk | tee Rooznegar-v0.3.7-clock-face.sha256
+          cp rooznegar-android/app/build/outputs/apk/release/app-release.apk Rooznegar-v0.3.8-clock-rtl-fix.apk
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs Rooznegar-v0.3.8-clock-rtl-fix.apk
+          sha256sum Rooznegar-v0.3.8-clock-rtl-fix.apk | tee Rooznegar-v0.3.8-clock-rtl-fix.sha256
 
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view rooznegar-v0.3.7 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload rooznegar-v0.3.7 Rooznegar-v0.3.7-clock-face.apk Rooznegar-v0.3.7-clock-face.sha256 --repo "$GITHUB_REPOSITORY" --clobber
+          if gh release view rooznegar-v0.3.8 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload rooznegar-v0.3.8 Rooznegar-v0.3.8-clock-rtl-fix.apk Rooznegar-v0.3.8-clock-rtl-fix.sha256 --repo "$GITHUB_REPOSITORY" --clobber
           else
-            gh release create rooznegar-v0.3.7 Rooznegar-v0.3.7-clock-face.apk Rooznegar-v0.3.7-clock-face.sha256 --repo "$GITHUB_REPOSITORY" --target "${{ github.event.pull_request.head.sha }}" --title "Rooznegar v0.3.7 Clock Face" --notes "Hourly weather dial corrected to a true 12-hour analog clock layout: 12 top, 3 right, 6 bottom, 9 left, remaining hours at exact 30-degree positions. RTL-safe absolute positioning prevents 3/9 mirroring. Dial labels use 12-hour numbers while detail time remains real 24-hour time."
+            gh release create rooznegar-v0.3.8 Rooznegar-v0.3.8-clock-rtl-fix.apk Rooznegar-v0.3.8-clock-rtl-fix.sha256 --repo "$GITHUB_REPOSITORY" --target "${{ github.event.pull_request.head.sha }}" --title "Rooznegar v0.3.8 RTL Clock Fix" --notes "Fixes RTL clipping in the live hourly clock by rendering the dial in a dedicated LTR coordinate space. All 12 forecast nodes stay inside the circle: 12 top, 3 right, 6 bottom, 9 left. Radius and node sizing were tightened to avoid edge clipping while preserving live needle and tap details."
           fi
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Rooznegar-v0.3.7-clock-face-apk
+          name: Rooznegar-v0.3.8-clock-rtl-fix-apk
           path: |
-            Rooznegar-v0.3.7-clock-face.apk
-            Rooznegar-v0.3.7-clock-face.sha256
+            Rooznegar-v0.3.8-clock-rtl-fix.apk
+            Rooznegar-v0.3.8-clock-rtl-fix.sha256
           if-no-files-found: error
