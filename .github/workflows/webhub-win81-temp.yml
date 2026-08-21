@@ -14,7 +14,7 @@ permissions:
 jobs:
   build-webhub:
     runs-on: windows-2022
-    timeout-minutes: 45
+    timeout-minutes: 50
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,14 +30,21 @@ jobs:
       - name: Verify CEF runtime
         shell: pwsh
         run: |
-          $out = "webhub-temp\WebHubWin81\bin\Release\net472"
+          $out = "webhub-temp\WebHubWin81\bin\x64\Release\net472"
           if (-not (Test-Path "$out\WebHub.exe")) { throw "WebHub.exe not found" }
           if (-not (Test-Path "$out\libcef.dll")) { throw "libcef.dll not found" }
+          if (-not (Test-Path "$out\CefSharp.BrowserSubprocess.exe")) { throw "CEF subprocess not found" }
 
       - name: Download VC++ runtime
         shell: pwsh
         run: |
           Invoke-WebRequest -Uri "https://aka.ms/vs/16/release/vc_redist.x64.exe" -OutFile "webhub-temp\installer\vc_redist.x64.exe"
+
+      - name: Download .NET Framework 4.7.2 offline installer
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/?LinkId=863265" -OutFile "webhub-temp\installer\ndp472.exe"
+          if ((Get-Item "webhub-temp\installer\ndp472.exe").Length -lt 50000000) { throw ".NET Framework download incomplete" }
 
       - name: Install Inno Setup
         shell: pwsh
@@ -55,7 +62,7 @@ jobs:
       - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
-          name: WebHub-Windows-8.1-x64-Setup
-          path: release/WebHub-Windows-8.1-x64-Setup.exe
+          name: WebHub-Windows-8.1-x64-Setup-Fixed
+          path: release/WebHub-Windows-8.1-x64-Setup-Fixed.exe
           if-no-files-found: error
           retention-days: 14
