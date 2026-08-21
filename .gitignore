@@ -1,0 +1,7 @@
+# Messenger Workspace build outputs
+MessengerWorkspace/packages/
+MessengerWorkspace/dist/
+MessengerWorkspace/src/**/bin/
+MessengerWorkspace/src/**/obj/
+MessengerWorkspace/.tools/
+*.nupkg
