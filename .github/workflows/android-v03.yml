@@ -1,4 +1,4 @@
-name: Rooznegar v0.3.4 Polish
+name: Rooznegar v0.3.5 Centered Note
 
 on:
   pull_request:
@@ -9,6 +9,7 @@ on:
       - 'payload9/**'
       - 'payload10/**'
       - 'payload11/**'
+      - 'payload12/**'
       - '.github/workflows/android-v03.yml'
   workflow_dispatch:
 
@@ -39,7 +40,6 @@ jobs:
           echo '99e659a3b8c90b9bd432b1a11eee3231d05dae6d6e2496f15bf381f16fa07f4c  patch.b64' | sha256sum -c -
           base64 -d patch.b64 > patch.tgz
           echo '556c4dab3f19fa2391c7febe5bd65bd4d5c78777baf89bc201fc33d1ef4fa055  patch.tgz' | sha256sum -c -
-          gzip -t patch.tgz
           tar -xzf patch.tgz -C rooznegar-android
 
       - name: Apply v0.3.2 weather patch
@@ -49,7 +49,6 @@ jobs:
           echo '49f57109a90190daf213dcf638285230fbc64a294b00d1e3486d72c556dc0458  weather.b64' | sha256sum -c -
           base64 -d weather.b64 > weather.tgz
           echo 'a4bf0dedfb5bce0a9394032ec6b754a1e134c7faa246ef4c85100a664a7c8f4e  weather.tgz' | sha256sum -c -
-          gzip -t weather.tgz
           tar -xzf weather.tgz -C rooznegar-android
 
       - name: Apply v0.3.3 home weather redesign
@@ -59,17 +58,15 @@ jobs:
           echo '05b337bfc3af28eb3381f31216d7e2a2068e31e22e71162ef2c29d5d853ee93d  v033.b64' | sha256sum -c -
           base64 -d v033.b64 > v033.tgz
           echo '07dde4bfeb510e95431b6c2938317dbb985d560003587265fdc5ccdbbee66306  v033.tgz' | sha256sum -c -
-          gzip -t v033.tgz
           tar -xzf v033.tgz -C rooznegar-android
 
-      - name: Apply v0.3.3 Compose compile fix
+      - name: Apply v0.3.3 compile fix
         run: |
           cat payload10/part00 payload10/part01 payload10/part02 > fix1.b64
           test "$(wc -c < fix1.b64)" -eq 9136
           echo '6a720befb74e0afc8d46fc4dbcea585f19709cb077284149d770c5db40722e01  fix1.b64' | sha256sum -c -
           base64 -d fix1.b64 > fix1.tgz
           echo 'f68e4a4f095d2d8d6bdc3aa48d62021799c7e2448687cb52a85487587955ca9e  fix1.tgz' | sha256sum -c -
-          gzip -t fix1.tgz
           tar -xzf fix1.tgz -C rooznegar-android
 
       - name: Apply v0.3.4 polish
@@ -78,9 +75,18 @@ jobs:
           gzip -t payload11/v034.tgz
           tar -xzf payload11/v034.tgz -C rooznegar-android
           grep -q '0.3.4-polish' rooznegar-android/app/build.gradle.kts
-          grep -q 'هواشناسی من' rooznegar-android/app/src/main/java/ir/rooznegar/app/ui/screens/TodayScreen.kt
-          grep -q 'مینودشت، گلستان' rooznegar-android/app/src/main/java/ir/rooznegar/app/ui/screens/PrayerScreen.kt
-          grep -q 'nextMainPrayer' rooznegar-android/app/src/main/java/ir/rooznegar/app/ui/screens/TodayScreen.kt
+
+      - name: Apply v0.3.5 centered note dialog
+        run: |
+          cat payload12/part00 payload12/part01 > v035.b64
+          test "$(wc -c < v035.b64)" -eq 8428
+          echo 'a39312b68b44d28e1230d96cec5a573a06b18bbbeebebe7d9eb6074336287fa1  v035.b64' | sha256sum -c -
+          base64 -d v035.b64 > v035.tgz
+          echo '9c3c4f6f0cdd5c0811cb70557ea551e2696b28368d6138ced398cb2cd40038af  v035.tgz' | sha256sum -c -
+          gzip -t v035.tgz
+          tar -xzf v035.tgz -C rooznegar-android
+          grep -q '0.3.5-centered-note' rooznegar-android/app/build.gradle.kts
+          grep -q 'DialogProperties(usePlatformDefaultWidth = false)' rooznegar-android/app/src/main/java/ir/rooznegar/app/ui/screens/CalendarScreen.kt
 
       - name: Stabilize Room schema processing
         run: |
@@ -88,8 +94,7 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           p = Path('rooznegar-android/app/build.gradle.kts')
-          s = p.read_text().replace('\nksp { arg("room.schemaLocation", "$projectDir/schemas") }\n', '\n')
-          p.write_text(s)
+          p.write_text(p.read_text().replace('\nksp { arg("room.schemaLocation", "$projectDir/schemas") }\n', '\n'))
           db = Path('rooznegar-android/app/src/main/java/ir/rooznegar/app/data/AppDatabase.kt')
           db.write_text(db.read_text().replace('exportSchema = true', 'exportSchema = false'))
           PY
@@ -124,24 +129,24 @@ jobs:
 
       - name: Verify APK
         run: |
-          cp rooznegar-android/app/build/outputs/apk/release/app-release.apk Rooznegar-v0.3.4-polish.apk
-          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs Rooznegar-v0.3.4-polish.apk
-          sha256sum Rooznegar-v0.3.4-polish.apk | tee Rooznegar-v0.3.4-polish.sha256
+          cp rooznegar-android/app/build/outputs/apk/release/app-release.apk Rooznegar-v0.3.5-centered-note.apk
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs Rooznegar-v0.3.5-centered-note.apk
+          sha256sum Rooznegar-v0.3.5-centered-note.apk | tee Rooznegar-v0.3.5-centered-note.sha256
 
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view rooznegar-v0.3.4 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload rooznegar-v0.3.4 Rooznegar-v0.3.4-polish.apk Rooznegar-v0.3.4-polish.sha256 --repo "$GITHUB_REPOSITORY" --clobber
+          if gh release view rooznegar-v0.3.5 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload rooznegar-v0.3.5 Rooznegar-v0.3.5-centered-note.apk Rooznegar-v0.3.5-centered-note.sha256 --repo "$GITHUB_REPOSITORY" --clobber
           else
-            gh release create rooznegar-v0.3.4 Rooznegar-v0.3.4-polish.apk Rooznegar-v0.3.4-polish.sha256 --repo "$GITHUB_REPOSITORY" --target "${{ github.event.pull_request.head.sha }}" --title "Rooznegar v0.3.4 Polish" --notes "Weather card renamed to هواشناسی من; animated live weather details with background refresh; prayer times fixed to Minudasht, Golestan and Home advances Fajr → sunrise → Dhuhr → Maghrib → next-day Fajr automatically; Home timeline and daily-tools sections hidden without removing their underlying features."
+            gh release create rooznegar-v0.3.5 Rooznegar-v0.3.5-centered-note.apk Rooznegar-v0.3.5-centered-note.sha256 --repo "$GITHUB_REPOSITORY" --target "${{ github.event.pull_request.head.sha }}" --title "Rooznegar v0.3.5 Centered Note" --notes "Calendar day-note editor now opens as a centered dialog instead of a bottom sheet. Existing note saving and dated-note behavior are preserved."
           fi
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Rooznegar-v0.3.4-polish-apk
+          name: Rooznegar-v0.3.5-centered-note-apk
           path: |
-            Rooznegar-v0.3.4-polish.apk
-            Rooznegar-v0.3.4-polish.sha256
+            Rooznegar-v0.3.5-centered-note.apk
+            Rooznegar-v0.3.5-centered-note.sha256
           if-no-files-found: error
