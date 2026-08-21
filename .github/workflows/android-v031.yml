@@ -1,0 +1,102 @@
+name: Rooznegar v0.3.1 Calendar Notes
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/android-v031.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build_release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore v0.3 source
+        run: |
+          cat payload6/part00 payload6/part01a payload6/part01b payload6/part01c payload6/part02 payload6/part03 payload6/part04 payload6/part05 payload6/part06 payload6/part07 payload6/part08 > project.b64
+          test "$(wc -c < project.b64)" -eq 48612
+          echo '6eafb1d0b1e2c8b67993142a60c6d03b0c42ab5a8ec3a4c39d1ff785dfbef5fb  project.b64' | sha256sum -c -
+          base64 -d project.b64 > project.tgz
+          echo 'cf52d667c23d6b682f165b64496c566cb3e8cda38f50cb019bce83a752c7eae7  project.tgz' | sha256sum -c -
+          gzip -t project.tgz
+          tar -xzf project.tgz
+          mv rooznegar-android-v03 rooznegar-android
+
+      - name: Apply v0.3.1 calendar-note patch
+        run: |
+          cat > patch.b64 <<'PATCH'
+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
+PATCH
+          base64 -d patch.b64 > patch.tgz
+          echo '556c4dab3f19fa2391c7febe5bd65bd4d5c78777baf89bc201fc33d1ef4fa055  patch.tgz' | sha256sum -c -
+          tar -xzf patch.tgz -C rooznegar-android
+          grep -q '0.3.1-calendar-notes' rooznegar-android/app/build.gradle.kts
+          grep -q 'dateEpochDay' rooznegar-android/app/src/main/java/ir/rooznegar/app/data/AppDatabase.kt
+          grep -q 'DayNoteSheet' rooznegar-android/app/src/main/java/ir/rooznegar/app/ui/screens/CalendarScreen.kt
+
+      - name: Stabilize Room schema processing
+        run: |
+          rm -rf rooznegar-android/app/schemas
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('rooznegar-android/app/build.gradle.kts')
+          s = p.read_text().replace('\nksp { arg("room.schemaLocation", "$projectDir/schemas") }\n', '\n')
+          p.write_text(s)
+          PY
+
+      - name: Add pinned Vazirmatn fonts
+        run: |
+          mkdir -p rooznegar-android/app/src/main/res/font
+          curl -L --fail --retry 3 https://raw.githubusercontent.com/rastikerdar/vazirmatn/6e553e33489a8f9dfaccc76860a2e3f3c1e66de7/fonts/ttf/Vazirmatn-Regular.ttf -o rooznegar-android/app/src/main/res/font/vazirmatn_regular.ttf
+          curl -L --fail --retry 3 https://raw.githubusercontent.com/rastikerdar/vazirmatn/6e553e33489a8f9dfaccc76860a2e3f3c1e66de7/fonts/ttf/Vazirmatn-Medium.ttf -o rooznegar-android/app/src/main/res/font/vazirmatn_medium.ttf
+          curl -L --fail --retry 3 https://raw.githubusercontent.com/rastikerdar/vazirmatn/6e553e33489a8f9dfaccc76860a2e3f3c1e66de7/fonts/ttf/Vazirmatn-Bold.ttf -o rooznegar-android/app/src/main/res/font/vazirmatn_bold.ttf
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Test and build optimized release APK
+        working-directory: rooznegar-android
+        run: |
+          gradle testDebugUnitTest --stacktrace --no-parallel
+          gradle assembleRelease --stacktrace --no-parallel
+
+      - name: Verify and prepare APK
+        run: |
+          cp rooznegar-android/app/build/outputs/apk/release/app-release.apk Rooznegar-v0.3.1-calendar-notes.apk
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs Rooznegar-v0.3.1-calendar-notes.apk
+          sha256sum Rooznegar-v0.3.1-calendar-notes.apk | tee Rooznegar-v0.3.1-calendar-notes.sha256
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view rooznegar-v0.3.1 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload rooznegar-v0.3.1 Rooznegar-v0.3.1-calendar-notes.apk Rooznegar-v0.3.1-calendar-notes.sha256 --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create rooznegar-v0.3.1 Rooznegar-v0.3.1-calendar-notes.apk Rooznegar-v0.3.1-calendar-notes.sha256 --repo "$GITHUB_REPOSITORY" --target "${{ github.event.pull_request.head.sha }}" --title "Rooznegar v0.3.1 Calendar Notes" --notes "Tap a Persian calendar day to add a dated note. Dated notes are shown on the selected day and in Notes. Compact calendar layout and Room 2-to-3 migration included."
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Rooznegar-v0.3.1-calendar-notes-apk
+          path: |
+            Rooznegar-v0.3.1-calendar-notes.apk
+            Rooznegar-v0.3.1-calendar-notes.sha256
+          if-no-files-found: error
