@@ -1,4 +1,4 @@
-name: Rooznegar v0.3.5 Centered Note
+name: Rooznegar v0.3.6 Live Hourly
 
 on:
   pull_request:
@@ -10,6 +10,7 @@ on:
       - 'payload10/**'
       - 'payload11/**'
       - 'payload12/**'
+      - 'payload13/**'
       - '.github/workflows/android-v03.yml'
   workflow_dispatch:
 
@@ -86,7 +87,15 @@ jobs:
           gzip -t v035.tgz
           tar -xzf v035.tgz -C rooznegar-android
           grep -q '0.3.5-centered-note' rooznegar-android/app/build.gradle.kts
-          grep -q 'DialogProperties(usePlatformDefaultWidth = false)' rooznegar-android/app/src/main/java/ir/rooznegar/app/ui/screens/CalendarScreen.kt
+
+      - name: Apply v0.3.6 live hourly forecast
+        run: |
+          echo '378df2b31d8b02342b0bb58c71fcf24bc99af9e45132f4f8d770047c9e2cdf96  payload13/v036.tgz' | sha256sum -c -
+          gzip -t payload13/v036.tgz
+          tar -xzf payload13/v036.tgz -C rooznegar-android
+          grep -q '0.3.6-live-hourly' rooznegar-android/app/build.gradle.kts
+          grep -q 'LiveHourlyForecastDial' rooznegar-android/app/src/main/java/ir/rooznegar/app/ui/screens/TodayScreen.kt
+          grep -q 'delay(30_000L)' rooznegar-android/app/src/main/java/ir/rooznegar/app/ui/screens/TodayScreen.kt
 
       - name: Stabilize Room schema processing
         run: |
@@ -129,24 +138,24 @@ jobs:
 
       - name: Verify APK
         run: |
-          cp rooznegar-android/app/build/outputs/apk/release/app-release.apk Rooznegar-v0.3.5-centered-note.apk
-          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs Rooznegar-v0.3.5-centered-note.apk
-          sha256sum Rooznegar-v0.3.5-centered-note.apk | tee Rooznegar-v0.3.5-centered-note.sha256
+          cp rooznegar-android/app/build/outputs/apk/release/app-release.apk Rooznegar-v0.3.6-live-hourly.apk
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs Rooznegar-v0.3.6-live-hourly.apk
+          sha256sum Rooznegar-v0.3.6-live-hourly.apk | tee Rooznegar-v0.3.6-live-hourly.sha256
 
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view rooznegar-v0.3.5 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload rooznegar-v0.3.5 Rooznegar-v0.3.5-centered-note.apk Rooznegar-v0.3.5-centered-note.sha256 --repo "$GITHUB_REPOSITORY" --clobber
+          if gh release view rooznegar-v0.3.6 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload rooznegar-v0.3.6 Rooznegar-v0.3.6-live-hourly.apk Rooznegar-v0.3.6-live-hourly.sha256 --repo "$GITHUB_REPOSITORY" --clobber
           else
-            gh release create rooznegar-v0.3.5 Rooznegar-v0.3.5-centered-note.apk Rooznegar-v0.3.5-centered-note.sha256 --repo "$GITHUB_REPOSITORY" --target "${{ github.event.pull_request.head.sha }}" --title "Rooznegar v0.3.5 Centered Note" --notes "Calendar day-note editor now opens as a centered dialog instead of a bottom sheet. Existing note saving and dated-note behavior are preserved."
+            gh release create rooznegar-v0.3.6 Rooznegar-v0.3.6-live-hourly.apk Rooznegar-v0.3.6-live-hourly.sha256 --repo "$GITHUB_REPOSITORY" --target "${{ github.event.pull_request.head.sha }}" --title "Rooznegar v0.3.6 Live Hourly" --notes "Interactive live hourly weather dial: 12 upcoming hours arranged around a circular clock, live needle updated every 30 seconds, day/night icons based on actual sunrise/sunset, animated current-hour pulse, and tap-to-inspect temperature, apparent temperature, wind, humidity, precipitation and weather condition for each hour."
           fi
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Rooznegar-v0.3.5-centered-note-apk
+          name: Rooznegar-v0.3.6-live-hourly-apk
           path: |
-            Rooznegar-v0.3.5-centered-note.apk
-            Rooznegar-v0.3.5-centered-note.sha256
+            Rooznegar-v0.3.6-live-hourly.apk
+            Rooznegar-v0.3.6-live-hourly.sha256
           if-no-files-found: error
