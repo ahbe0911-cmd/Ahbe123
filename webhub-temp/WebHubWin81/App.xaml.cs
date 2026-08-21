@@ -33,7 +33,7 @@ namespace WebHubWin81
 
             try
             {
-                WriteLog("Startup", null);
+                WriteLog("Startup v1.0.1", null);
 
                 var cachePath = Path.Combine(dataRoot, "CefCache");
                 Directory.CreateDirectory(cachePath);
