@@ -72,6 +72,16 @@ jobs:
           curl -L --fail --retry 3 https://raw.githubusercontent.com/rastikerdar/vazirmatn/6e553e33489a8f9dfaccc76860a2e3f3c1e66de7/fonts/ttf/Vazirmatn-Medium.ttf -o rooznegar-android/app/src/main/res/font/vazirmatn_medium.ttf
           curl -L --fail --retry 3 https://raw.githubusercontent.com/rastikerdar/vazirmatn/6e553e33489a8f9dfaccc76860a2e3f3c1e66de7/fonts/ttf/Vazirmatn-Bold.ttf -o rooznegar-android/app/src/main/res/font/vazirmatn_bold.ttf
 
+      - name: Pack reconstructed source
+        run: |
+          tar -czf Rooznegar-v0.3.2-source.tgz rooznegar-android
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Rooznegar-v0.3.2-source
+          path: Rooznegar-v0.3.2-source.tgz
+          if-no-files-found: error
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
