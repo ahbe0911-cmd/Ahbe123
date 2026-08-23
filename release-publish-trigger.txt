@@ -1,0 +1,1 @@
+Build and publish Rooznegar v0.2 release.
