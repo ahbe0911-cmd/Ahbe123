@@ -11,6 +11,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -21,6 +22,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -137,7 +139,7 @@ private fun OmniBoxApp(vm: AppsViewModel = viewModel()) {
     val backgroundBrush = if (dark) {
         Brush.verticalGradient(listOf(Color(0xFF111326), Color(0xFF0A0C17)))
     } else {
-        Brush.verticalGradient(listOf(Color(0xFFF2F1FF), Color(0xFFF7F8FC), Color(0xFFFFFFFF)))
+        Brush.verticalGradient(listOf(Color(0xFFF2F1FF), Color(0xFFF8F9FD), Color(0xFFFFFFFF)))
     }
 
     Box(
@@ -160,22 +162,40 @@ private fun OmniBoxApp(vm: AppsViewModel = viewModel()) {
                     onCreate = { addCategoryDialog = true }
                 )
             } else {
-                LazyRow(
-                    modifier = Modifier.fillMaxSize().padding(padding),
-                    contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 24.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.Top
+                BoxWithConstraints(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)
                 ) {
-                    items(vm.categories, key = { it.id }) { category ->
-                        OmniCategoryCard(
-                            modifier = Modifier.width(188.dp),
-                            category = category,
-                            vm = vm,
-                            onRenameCategory = { editingCategory = category },
-                            onDeleteCategory = { deletingCategory = category },
-                            onPickApps = { pickingCategory = category },
-                            onEditApp = { pkg -> editingApp = AppEditTarget(category.id, pkg) }
-                        )
+                    val narrow = maxWidth < 380.dp
+                    val sidePadding = if (narrow) 8.dp else 10.dp
+                    val gap = if (narrow) 7.dp else 9.dp
+                    val visibleColumns = if (maxWidth >= 700.dp) 3 else 2
+                    val gapsWidth = gap * (visibleColumns - 1).toFloat()
+                    val cardWidth = (maxWidth - sidePadding - sidePadding - gapsWidth) / visibleColumns.toFloat()
+
+                    LazyRow(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(
+                            start = sidePadding,
+                            end = sidePadding,
+                            top = 10.dp,
+                            bottom = 20.dp
+                        ),
+                        horizontalArrangement = Arrangement.spacedBy(gap),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        items(vm.categories, key = { it.id }) { category ->
+                            OmniCategoryCard(
+                                modifier = Modifier.width(cardWidth),
+                                category = category,
+                                vm = vm,
+                                onRenameCategory = { editingCategory = category },
+                                onDeleteCategory = { deletingCategory = category },
+                                onPickApps = { pickingCategory = category },
+                                onEditApp = { pkg -> editingApp = AppEditTarget(category.id, pkg) }
+                            )
+                        }
                     }
                 }
             }
@@ -246,67 +266,89 @@ private fun OmniBoxApp(vm: AppsViewModel = viewModel()) {
 @Composable
 private fun OmniBoxHeader(categoryCount: Int, onAddCategory: () -> Unit) {
     val dark = isSystemInDarkTheme()
-    val glass = if (dark) Color(0xE6181A2C) else Color(0xEFFFFFFF)
+    val glass = if (dark) Color(0xF0181A2C) else Color(0xF8FFFFFF)
 
     Surface(
         color = glass,
-        shadowElevation = 8.dp,
-        tonalElevation = 2.dp
+        shadowElevation = 5.dp,
+        tonalElevation = 1.dp
     ) {
-        Row(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .statusBarsPadding()
         ) {
-            Image(
-                painter = painterResource(R.drawable.omnibox_icon),
-                contentDescription = null,
+            val compact = maxWidth < 390.dp
+            val tiny = maxWidth < 345.dp
+
+            Row(
                 modifier = Modifier
-                    .size(52.dp)
-                    .clip(RoundedCornerShape(16.dp)),
-                contentScale = ContentScale.Crop
-            )
-
-            Spacer(Modifier.width(11.dp))
-
-            Column(Modifier.weight(1f)) {
-                Text(
-                    text = "OmniBox",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Black,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-                Text(
-                    text = if (categoryCount == 0) "همه‌چیز، سر جای خودش" else "$categoryCount دسته · همه‌چیز دم‌دست",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Surface(
-                onClick = onAddCategory,
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.primary,
-                shadowElevation = 4.dp
+                    .fillMaxWidth()
+                    .padding(
+                        horizontal = if (compact) 10.dp else 14.dp,
+                        vertical = if (compact) 8.dp else 10.dp
+                    ),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Rounded.Add,
-                        contentDescription = "دسته جدید",
-                        modifier = Modifier.size(19.dp),
-                        tint = MaterialTheme.colorScheme.onPrimary
-                    )
-                    Spacer(Modifier.width(5.dp))
+                Image(
+                    painter = painterResource(R.drawable.omnibox_icon),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(if (compact) 43.dp else 48.dp)
+                        .clip(RoundedCornerShape(if (compact) 13.dp else 15.dp)),
+                    contentScale = ContentScale.Crop
+                )
+
+                Spacer(Modifier.width(if (compact) 8.dp else 10.dp))
+
+                Column(Modifier.weight(1f)) {
                     Text(
-                        "دسته",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimary
+                        text = "OmniBox",
+                        style = if (compact) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        maxLines = 1
                     )
+                    Text(
+                        text = if (categoryCount == 0) "همه‌چیز، سر جای خودش" else "$categoryCount دسته · همه‌چیز دم‌دست",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Spacer(Modifier.width(6.dp))
+
+                Surface(
+                    onClick = onAddCategory,
+                    shape = RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    shadowElevation = 2.dp
+                ) {
+                    Row(
+                        modifier = Modifier.padding(
+                            horizontal = if (tiny) 10.dp else 11.dp,
+                            vertical = 8.dp
+                        ),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Rounded.Add,
+                            contentDescription = "دسته جدید",
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.onPrimary
+                        )
+                        if (!tiny) {
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                "دسته",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -315,35 +357,35 @@ private fun OmniBoxHeader(categoryCount: Int, onAddCategory: () -> Unit) {
 
 @Composable
 private fun OmniEmptyState(modifier: Modifier, onCreate: () -> Unit) {
-    Box(modifier.padding(24.dp), contentAlignment = Alignment.Center) {
+    Box(modifier.padding(20.dp), contentAlignment = Alignment.Center) {
         Card(
-            shape = RoundedCornerShape(30.dp),
+            shape = RoundedCornerShape(26.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f)),
-            elevation = CardDefaults.cardElevation(defaultElevation = 5.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
         ) {
             Column(
-                modifier = Modifier.padding(horizontal = 28.dp, vertical = 30.dp),
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 26.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Image(
                     painter = painterResource(R.drawable.omnibox_icon),
                     contentDescription = null,
-                    modifier = Modifier.size(86.dp).clip(RoundedCornerShape(24.dp)),
+                    modifier = Modifier.size(78.dp).clip(RoundedCornerShape(22.dp)),
                     contentScale = ContentScale.Crop
                 )
-                Spacer(Modifier.height(17.dp))
+                Spacer(Modifier.height(14.dp))
                 Text("اولین Box را بساز", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
-                Spacer(Modifier.height(7.dp))
+                Spacer(Modifier.height(6.dp))
                 Text(
-                    "مثلاً کتابخانه، کافی‌نت، کار یا شخصی؛ بعد برنامه‌ها را خیلی سریع داخلش بچین.",
+                    "مثلاً کتابخانه، کافی‌نت، کار یا شخصی؛ بعد برنامه‌ها را سریع داخلش بچین.",
                     textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(Modifier.height(18.dp))
-                Button(onClick = onCreate, shape = RoundedCornerShape(15.dp)) {
-                    Icon(Icons.Rounded.Add, contentDescription = null, Modifier.size(19.dp))
-                    Spacer(Modifier.width(6.dp))
+                Spacer(Modifier.height(16.dp))
+                Button(onClick = onCreate, shape = RoundedCornerShape(14.dp)) {
+                    Icon(Icons.Rounded.Add, contentDescription = null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(5.dp))
                     Text("ساخت دسته", fontWeight = FontWeight.Bold)
                 }
             }
@@ -364,17 +406,18 @@ private fun OmniCategoryCard(
     var menuOpen by remember { mutableStateOf(false) }
     val accent = remember(category.id) { accentFor(category.id) }
     val dark = isSystemInDarkTheme()
-    val cardColor = if (dark) MaterialTheme.colorScheme.surface.copy(alpha = 0.95f) else Color.White.copy(alpha = 0.97f)
+    val cardColor = if (dark) MaterialTheme.colorScheme.surface.copy(alpha = 0.96f) else Color.White.copy(alpha = 0.98f)
+    val shape = RoundedCornerShape(20.dp)
 
     Card(
         modifier = modifier
-            .shadow(8.dp, RoundedCornerShape(24.dp), clip = false)
+            .shadow(4.dp, shape, clip = false)
             .border(
                 width = 1.dp,
-                color = if (dark) Color.White.copy(alpha = 0.07f) else Color.White.copy(alpha = 0.9f),
-                shape = RoundedCornerShape(24.dp)
+                color = if (dark) Color.White.copy(alpha = 0.06f) else Color.White.copy(alpha = 0.92f),
+                shape = shape
             ),
-        shape = RoundedCornerShape(24.dp),
+        shape = shape,
         colors = CardDefaults.cardColors(containerColor = cardColor)
     ) {
         Column(Modifier.fillMaxWidth()) {
@@ -384,41 +427,49 @@ private fun OmniCategoryCard(
                     .background(Brush.linearGradient(listOf(accent.start, accent.end)))
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(start = 13.dp, end = 5.dp, top = 12.dp, bottom = 11.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 10.dp, end = 2.dp, top = 9.dp, bottom = 9.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(36.dp)
-                            .background(Color.White.copy(alpha = 0.18f), RoundedCornerShape(12.dp)),
+                            .size(31.dp)
+                            .background(Color.White.copy(alpha = 0.18f), RoundedCornerShape(10.dp)),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = category.title.trim().firstOrNull()?.toString() ?: "•",
                             color = Color.White,
                             fontWeight = FontWeight.Black,
-                            style = MaterialTheme.typography.titleMedium
+                            style = MaterialTheme.typography.titleSmall
                         )
                     }
-                    Spacer(Modifier.width(9.dp))
+                    Spacer(Modifier.width(7.dp))
                     Column(Modifier.weight(1f)) {
                         Text(
                             text = category.title,
                             color = Color.White,
-                            style = MaterialTheme.typography.titleMedium,
+                            style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Black,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
                             text = "${category.packages.size} برنامه",
-                            color = Color.White.copy(alpha = 0.76f),
-                            style = MaterialTheme.typography.labelSmall
+                            color = Color.White.copy(alpha = 0.78f),
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 1
                         )
                     }
                     Box {
-                        IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(34.dp)) {
-                            Icon(Icons.Rounded.MoreVert, contentDescription = "گزینه‌های دسته", tint = Color.White)
+                        IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(30.dp)) {
+                            Icon(
+                                Icons.Rounded.MoreVert,
+                                contentDescription = "گزینه‌های دسته",
+                                tint = Color.White,
+                                modifier = Modifier.size(19.dp)
+                            )
                         }
                         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                             DropdownMenuItem(
@@ -444,28 +495,31 @@ private fun OmniCategoryCard(
 
             if (category.packages.isEmpty()) {
                 Column(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 22.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 10.dp, vertical = 16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Box(
-                        modifier = Modifier.size(44.dp).background(accent.soft, CircleShape),
+                        modifier = Modifier.size(38.dp).background(accent.soft, CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Rounded.Apps, contentDescription = null, tint = accent.start, modifier = Modifier.size(23.dp))
+                        Icon(Icons.Rounded.Apps, contentDescription = null, tint = accent.start, modifier = Modifier.size(20.dp))
                     }
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(6.dp))
                     Text(
                         "هنوز خالیه",
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1
                     )
                 }
             } else {
                 LazyColumn(
-                    modifier = Modifier.fillMaxWidth().heightIn(max = 390.dp),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 360.dp),
+                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 7.dp),
+                    verticalArrangement = Arrangement.spacedBy(5.dp)
                 ) {
                     items(category.packages, key = { it }) { pkg ->
                         OmniAppRow(
@@ -482,14 +536,23 @@ private fun OmniCategoryCard(
 
             OutlinedButton(
                 onClick = onPickApps,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp).height(40.dp),
-                shape = RoundedCornerShape(14.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, accent.start.copy(alpha = 0.34f)),
-                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 6.dp, vertical = 7.dp)
+                    .height(38.dp),
+                shape = RoundedCornerShape(12.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, accent.start.copy(alpha = 0.32f)),
+                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
             ) {
-                Icon(Icons.Rounded.Add, contentDescription = null, Modifier.size(17.dp), tint = accent.start)
-                Spacer(Modifier.width(5.dp))
-                Text("افزودن برنامه", fontWeight = FontWeight.Bold, color = accent.start)
+                Icon(Icons.Rounded.Add, contentDescription = null, Modifier.size(16.dp), tint = accent.start)
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    "افزودن",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = accent.start,
+                    maxLines = 1
+                )
             }
         }
     }
@@ -506,33 +569,35 @@ private fun OmniAppRow(
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     val dark = isSystemInDarkTheme()
-    val rowColor = if (dark) Color.White.copy(alpha = 0.055f) else accent.soft.copy(alpha = 0.58f)
+    val rowColor = if (dark) Color.White.copy(alpha = 0.055f) else accent.soft.copy(alpha = 0.55f)
 
     Surface(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onLaunch),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(13.dp),
         color = rowColor
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 2.dp, top = 7.dp, bottom = 7.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 6.dp, end = 1.dp, top = 6.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            OmniAppIcon(packageName, Modifier.size(40.dp))
-            Spacer(Modifier.width(8.dp))
+            OmniAppIcon(packageName, Modifier.size(35.dp))
+            Spacer(Modifier.width(6.dp))
             Text(
                 text = displayName,
                 modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
             Box {
-                IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(32.dp)) {
+                IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(29.dp)) {
                     Icon(
                         Icons.Rounded.MoreVert,
                         contentDescription = "ویرایش برنامه",
-                        modifier = Modifier.size(18.dp),
+                        modifier = Modifier.size(17.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -585,10 +650,10 @@ private fun OmniAppIcon(packageName: String, modifier: Modifier = Modifier) {
         )
     } else {
         Box(
-            modifier = modifier.background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(12.dp)),
+            modifier = modifier.background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(10.dp)),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Rounded.Apps, contentDescription = null, Modifier.size(20.dp))
+            Icon(Icons.Rounded.Apps, contentDescription = null, Modifier.size(18.dp))
         }
     }
 }
@@ -603,7 +668,7 @@ private fun OmniCategoryDialog(
     var value by remember(initial) { mutableStateOf(initial) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(26.dp),
+        shape = RoundedCornerShape(24.dp),
         title = { Text(title, fontWeight = FontWeight.Black) },
         text = {
             OutlinedTextField(
@@ -613,7 +678,7 @@ private fun OmniCategoryDialog(
                 label = { Text("نام دسته") },
                 placeholder = { Text("مثلاً کتابخانه") },
                 singleLine = true,
-                shape = RoundedCornerShape(15.dp)
+                shape = RoundedCornerShape(14.dp)
             )
         },
         confirmButton = { Button(enabled = value.isNotBlank(), onClick = { onSave(value) }) { Text("ذخیره") } },
@@ -631,7 +696,7 @@ private fun OmniAppNameDialog(
     var value by remember(currentName) { mutableStateOf(currentName) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(26.dp),
+        shape = RoundedCornerShape(24.dp),
         title = { Text("نام نمایشی برنامه", fontWeight = FontWeight.Black) },
         text = {
             Column {
@@ -640,7 +705,7 @@ private fun OmniAppNameDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(9.dp))
                 OutlinedTextField(
                     value = value,
                     onValueChange = { value = it },
@@ -648,7 +713,7 @@ private fun OmniAppNameDialog(
                     label = { Text("نام دلخواه") },
                     supportingText = { Text("نام اصلی: $originalName") },
                     singleLine = true,
-                    shape = RoundedCornerShape(15.dp)
+                    shape = RoundedCornerShape(14.dp)
                 )
             }
         },
@@ -666,7 +731,7 @@ private fun OmniDeleteDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(26.dp),
+        shape = RoundedCornerShape(24.dp),
         title = { Text(title, fontWeight = FontWeight.Black) },
         text = { Text(body) },
         confirmButton = { Button(onClick = onConfirm) { Text("حذف") } },
@@ -693,7 +758,7 @@ private fun OmniAppPickerDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(26.dp),
+        shape = RoundedCornerShape(24.dp),
         title = { Text("برنامه‌های ${category.title}", fontWeight = FontWeight.Black) },
         text = {
             Column(Modifier.fillMaxWidth()) {
@@ -704,7 +769,7 @@ private fun OmniAppPickerDialog(
                     leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
                     placeholder = { Text("جست‌وجوی برنامه") },
                     singleLine = true,
-                    shape = RoundedCornerShape(15.dp)
+                    shape = RoundedCornerShape(14.dp)
                 )
                 Spacer(Modifier.height(7.dp))
                 LazyColumn(Modifier.fillMaxWidth().height(370.dp)) {
@@ -719,8 +784,8 @@ private fun OmniAppPickerDialog(
                                 .padding(vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            OmniAppIcon(app.packageName, Modifier.size(40.dp))
-                            Spacer(Modifier.width(9.dp))
+                            OmniAppIcon(app.packageName, Modifier.size(38.dp))
+                            Spacer(Modifier.width(8.dp))
                             Text(
                                 app.label,
                                 modifier = Modifier.weight(1f),
