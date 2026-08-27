@@ -12,8 +12,8 @@ android {
         applicationId = "ir.dasteyar.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 3
-        versionName = "1.1.1"
+        versionCode = 4
+        versionName = "1.2.0"
     }
 
     buildTypes {
@@ -31,6 +31,26 @@ android {
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true; buildConfig = true }
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
+
+    val generatedOmniRes = layout.buildDirectory.dir("generated/omnibox/res").get().asFile
+    sourceSets.getByName("main").res.srcDir(generatedOmniRes)
+}
+
+val prepareOmniBoxIcon by tasks.registering {
+    val source = layout.projectDirectory.file("src/main/omnibox_icon.webp.b64")
+    val output = layout.buildDirectory.file("generated/omnibox/res/drawable-nodpi/omnibox_icon.webp")
+    inputs.file(source)
+    outputs.file(output)
+    doLast {
+        val target = output.get().asFile
+        target.parentFile.mkdirs()
+        val encoded = source.asFile.readText().trim()
+        target.writeBytes(java.util.Base64.getDecoder().decode(encoded))
+    }
+}
+
+tasks.named("preBuild").configure {
+    dependsOn(prepareOmniBoxIcon)
 }
 
 dependencies {
