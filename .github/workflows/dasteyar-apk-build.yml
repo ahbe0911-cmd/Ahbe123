@@ -1,4 +1,4 @@
-name: DasteYar Android APK
+name: OmniBox Dual Android APK
 
 on:
   push:
@@ -27,13 +27,18 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.13"
-      - name: Build debug APK
+      - name: Build both debug APKs
         working-directory: dasteyar-build
-        run: gradle :app:assembleDebug --stacktrace
-      - name: Upload APK
+        run: gradle :app:assembleOmniboxDebug :app:assembleKetabkhaneDebug --stacktrace
+      - name: Prepare named APKs
+        run: |
+          mkdir -p output
+          cp dasteyar-build/app/build/outputs/apk/omnibox/debug/app-omnibox-debug.apk output/OmniBox-v1.3.0.apk
+          cp dasteyar-build/app/build/outputs/apk/ketabkhane/debug/app-ketabkhane-debug.apk output/Ketabkhane-v1.3.0.apk
+      - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
-          name: DasteYar-debug-apk
-          path: dasteyar-build/app/build/outputs/apk/debug/app-debug.apk
+          name: OmniBox-and-Ketabkhane-v1.3.0
+          path: output/*.apk
           if-no-files-found: error
           retention-days: 7
