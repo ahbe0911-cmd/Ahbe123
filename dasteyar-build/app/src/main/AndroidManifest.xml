@@ -11,11 +11,11 @@
         android:allowBackup="true"
         android:icon="@drawable/omnibox_icon"
         android:roundIcon="@drawable/omnibox_icon"
-        android:label="OmniBox"
+        android:label="${appLabel}"
         android:supportsRtl="true"
         android:theme="@style/Theme.DasteYar">
         <activity
-            android:name=".OmniBoxActivity"
+            android:name=".OmniDualActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
