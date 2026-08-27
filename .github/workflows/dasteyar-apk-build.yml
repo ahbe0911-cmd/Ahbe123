@@ -42,3 +42,12 @@ jobs:
           path: output/*.apk
           if-no-files-found: error
           retention-days: 7
+      - name: Upload source
+        uses: actions/upload-artifact@v4
+        with:
+          name: OmniBox-Ketabkhane-source-v1.3.0
+          path: |
+            dasteyar-build/**
+            !dasteyar-build/**/build/**
+          if-no-files-found: error
+          retention-days: 7
