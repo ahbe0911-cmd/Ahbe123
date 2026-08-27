@@ -1,4 +1,3 @@
-import java.util.Base64
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -33,32 +32,12 @@ android {
     }
     buildFeatures { compose = true; buildConfig = true }
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
-
-    val generatedOmniRes = layout.buildDirectory.dir("generated/omnibox/res").get().asFile
-    sourceSets.getByName("main").res.srcDir(generatedOmniRes)
 }
 
 kotlin {
     compilerOptions {
         jvmTarget.set(JvmTarget.JVM_17)
     }
-}
-
-val prepareOmniBoxIcon by tasks.registering {
-    val source = layout.projectDirectory.file("src/main/omnibox_icon.webp.b64")
-    val output = layout.buildDirectory.file("generated/omnibox/res/drawable-nodpi/omnibox_icon.webp")
-    inputs.file(source)
-    outputs.file(output)
-    doLast {
-        val target = output.get().asFile
-        target.parentFile.mkdirs()
-        val encoded = source.asFile.readText().trim()
-        target.writeBytes(Base64.getDecoder().decode(encoded))
-    }
-}
-
-tasks.named("preBuild").configure {
-    dependsOn(prepareOmniBoxIcon)
 }
 
 dependencies {
