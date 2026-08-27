@@ -54,7 +54,7 @@ dependencies {
     implementation("androidx.compose.foundation:foundation:1.11.4")
     implementation("androidx.compose.animation:animation:1.11.4")
     implementation("androidx.compose.material3:material3:1.3.2")
-    implementation("androidx.compose.material:material-icons-extended:1.11.4")
+    implementation("androidx.compose.material:material-icons-extended:1.6.0")
 
     debugImplementation("androidx.compose.ui:ui-tooling:1.11.4")
 }
