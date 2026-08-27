@@ -14,8 +14,8 @@ android {
         applicationId = "ir.dasteyar.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 7
-        versionName = "1.4.0"
+        versionCode = 8
+        versionName = "1.5.0"
         buildConfigField("String", "BRAND_NAME", "\"OmniBox\"")
     }
 
