@@ -13,9 +13,10 @@
         android:roundIcon="@drawable/omnibox_icon"
         android:label="OmniBox"
         android:supportsRtl="true"
+        android:hardwareAccelerated="true"
         android:theme="@style/Theme.DasteYar">
         <activity
-            android:name=".OmniUltraActivity"
+            android:name=".OmniPerfActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
