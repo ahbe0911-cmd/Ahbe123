@@ -21,7 +21,7 @@ android {
     productFlavors {
         create("omnibox") {
             dimension = "brand"
-            applicationId = "ir.omnibox.launcher"
+            applicationId = "ir.dasteyar.app"
             manifestPlaceholders["appLabel"] = "OmniBox"
             buildConfigField("String", "BRAND_NAME", "\"OmniBox\"")
         }
