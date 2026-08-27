@@ -1,3 +1,9 @@
-OmniBox / کتابخانه
-Source version: 1.3.0
-Includes two installable flavors: OmniBox and Ketabkhane.
+OmniBox v1.6.0 Performance Edition
+- performance build: R8 + resource shrinking + non-debuggable
+- startup baseline profile rules + ProfileInstaller
+- local Vazirmatn bundled into APK during CI (no runtime font provider)
+- zero full PackageManager scan at app startup
+- icon disk decode limited to 2 concurrent tasks
+- missing icons generated after first frame
+- clock recomposes once per minute instead of once per second
+- existing OmniBox categories, aliases and app order remain compatible
