@@ -11,11 +11,26 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "ir.dasteyar.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 5
-        versionName = "1.2.1"
+        versionCode = 6
+        versionName = "1.3.0"
+    }
+
+    flavorDimensions += "brand"
+    productFlavors {
+        create("omnibox") {
+            dimension = "brand"
+            applicationId = "ir.omnibox.launcher"
+            manifestPlaceholders["appLabel"] = "OmniBox"
+            buildConfigField("String", "BRAND_NAME", "\"OmniBox\"")
+        }
+        create("ketabkhane") {
+            dimension = "brand"
+            applicationId = "ir.omnibox.library"
+            manifestPlaceholders["appLabel"] = "کتابخانه"
+            buildConfigField("String", "BRAND_NAME", "\"کتابخانه\"")
+        }
     }
 
     buildTypes {
