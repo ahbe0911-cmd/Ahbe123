@@ -11,26 +11,12 @@ android {
     compileSdk = 36
 
     defaultConfig {
+        applicationId = "ir.dasteyar.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 6
-        versionName = "1.3.0"
-    }
-
-    flavorDimensions += "brand"
-    productFlavors {
-        create("omnibox") {
-            dimension = "brand"
-            applicationId = "ir.dasteyar.app"
-            manifestPlaceholders["appLabel"] = "OmniBox"
-            buildConfigField("String", "BRAND_NAME", "\"OmniBox\"")
-        }
-        create("ketabkhane") {
-            dimension = "brand"
-            applicationId = "ir.omnibox.library"
-            manifestPlaceholders["appLabel"] = "کتابخانه"
-            buildConfigField("String", "BRAND_NAME", "\"کتابخانه\"")
-        }
+        versionCode = 7
+        versionName = "1.4.0"
+        buildConfigField("String", "BRAND_NAME", "\"OmniBox\"")
     }
 
     buildTypes {
@@ -62,7 +48,6 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.9.2")
     implementation("androidx.compose.ui:ui:1.11.4")
     implementation("androidx.compose.ui:ui-tooling-preview:1.11.4")
-    implementation("androidx.compose.ui:ui-text-google-fonts:1.11.4")
     implementation("androidx.compose.foundation:foundation:1.11.4")
     implementation("androidx.compose.animation:animation:1.11.4")
     implementation("androidx.compose.material3:material3:1.3.2")
