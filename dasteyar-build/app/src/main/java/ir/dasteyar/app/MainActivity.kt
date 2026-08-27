@@ -18,10 +18,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -47,8 +47,8 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -79,7 +79,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.googlefonts.GoogleFont
@@ -116,7 +115,6 @@ data class AppCategory(
 )
 
 data class LaunchableApp(val label: String, val packageName: String)
-
 data class AppEditTarget(val categoryId: String, val packageName: String)
 
 class AppsViewModel(application: Application) : AndroidViewModel(application) {
@@ -128,9 +126,7 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
     var installedApps by mutableStateOf<List<LaunchableApp>>(emptyList())
         private set
 
-    init {
-        load()
-    }
+    init { load() }
 
     suspend fun refreshApps() {
         installedApps = withContext(Dispatchers.IO) {
@@ -190,11 +186,7 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
     fun renameApp(pkg: String, customName: String) {
         val value = customName.trim()
         val original = label(pkg)
-        if (value.isBlank() || value == original) {
-            aliases.remove(pkg)
-        } else {
-            aliases[pkg] = value
-        }
+        if (value.isBlank() || value == original) aliases.remove(pkg) else aliases[pkg] = value
         save()
     }
 
@@ -209,7 +201,8 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
     fun label(pkg: String): String =
         installedApps.firstOrNull { it.packageName == pkg }?.label ?: pkg
 
-    fun displayName(pkg: String): String = aliases[pkg]?.takeIf { it.isNotBlank() } ?: label(pkg)
+    fun displayName(pkg: String): String =
+        aliases[pkg]?.takeIf { it.isNotBlank() } ?: label(pkg)
 
     private fun updateCategory(id: String, transform: (AppCategory) -> AppCategory) {
         val index = categories.indexOfFirst { it.id == id }
@@ -241,10 +234,9 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun load() {
-        val rawCategories = prefs.getString("categories", null)
-        if (rawCategories != null) {
+        prefs.getString("categories", null)?.let { raw ->
             runCatching {
-                val array = JSONArray(rawCategories)
+                val array = JSONArray(raw)
                 repeat(array.length()) { i ->
                     val obj = array.getJSONObject(i)
                     val p = obj.optJSONArray("packages") ?: JSONArray()
@@ -262,10 +254,9 @@ class AppsViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
-        val rawAliases = prefs.getString("aliases", null)
-        if (rawAliases != null) {
+        prefs.getString("aliases", null)?.let { raw ->
             runCatching {
-                val obj = JSONObject(rawAliases)
+                val obj = JSONObject(raw)
                 val keys = obj.keys()
                 while (keys.hasNext()) {
                     val key = keys.next()
@@ -295,12 +286,12 @@ fun DasteYarApp(vm: AppsViewModel = viewModel()) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
                             text = "دسته‌یار",
-                            style = MaterialTheme.typography.headlineSmall,
+                            style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Black
                         )
                         Text(
-                            text = "برنامه‌هایت را به سبک خودت بچین",
-                            style = MaterialTheme.typography.labelMedium,
+                            text = "برنامه‌ها، مرتب و دم‌دست",
+                            style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -308,11 +299,13 @@ fun DasteYarApp(vm: AppsViewModel = viewModel()) {
             )
         },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
+            FloatingActionButton(
                 onClick = { addCategoryDialog = true },
-                icon = { Icon(Icons.Rounded.Add, contentDescription = null) },
-                text = { Text("دسته جدید", fontWeight = FontWeight.Bold) }
-            )
+                modifier = Modifier.size(48.dp),
+                shape = CircleShape
+            ) {
+                Icon(Icons.Rounded.Add, contentDescription = "دسته جدید")
+            }
         }
     ) { padding ->
         if (vm.categories.isEmpty()) {
@@ -323,20 +316,19 @@ fun DasteYarApp(vm: AppsViewModel = viewModel()) {
         } else {
             LazyRow(
                 modifier = Modifier.fillMaxSize().padding(padding),
-                contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 10.dp, bottom = 92.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                contentPadding = PaddingValues(start = 10.dp, end = 10.dp, top = 8.dp, bottom = 68.dp),
+                horizontalArrangement = Arrangement.spacedBy(9.dp),
+                verticalAlignment = Alignment.Top
             ) {
                 items(vm.categories, key = { it.id }) { category ->
                     CategoryColumn(
-                        modifier = Modifier.width(216.dp).fillMaxHeight(),
+                        modifier = Modifier.width(174.dp),
                         category = category,
                         vm = vm,
                         onRenameCategory = { editingCategory = category },
                         onDeleteCategory = { deletingCategory = category },
                         onPickApps = { pickingCategory = category },
-                        onEditApp = { pkg ->
-                            editingApp = AppEditTarget(category.id, pkg)
-                        }
+                        onEditApp = { pkg -> editingApp = AppEditTarget(category.id, pkg) }
                     )
                 }
             }
@@ -370,7 +362,7 @@ fun DasteYarApp(vm: AppsViewModel = viewModel()) {
     deletingCategory?.let { category ->
         ConfirmDeleteDialog(
             title = "حذف دسته «${category.title}»؟",
-            body = "فقط این دسته از دسته‌یار حذف می‌شود؛ هیچ برنامه‌ای از گوشی پاک نخواهد شد.",
+            body = "فقط این دسته حذف می‌شود و برنامه اصلی گوشی دست‌نخورده می‌ماند.",
             onDismiss = { deletingCategory = null },
             onConfirm = {
                 vm.deleteCategory(category.id)
@@ -409,28 +401,25 @@ private fun EmptyState(modifier: Modifier = Modifier, onCreate: () -> Unit) {
     Box(modifier.padding(28.dp), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Box(
-                Modifier.size(86.dp).background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                Modifier.size(72.dp).background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Rounded.Apps, contentDescription = null, Modifier.size(42.dp))
+                Icon(Icons.Rounded.Apps, contentDescription = null, Modifier.size(34.dp))
             }
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(14.dp))
+            Text("اولین دسته را بساز", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black)
+            Spacer(Modifier.height(6.dp))
             Text(
-                "اولین ستونت را بساز",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Black
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                "مثلاً کتابخانه، کافی‌نت یا کار؛ بعد برنامه‌های مربوط را داخل همان ستون قرار بده.",
+                "برنامه‌های مرتبط را در ستون‌های کوچک و مرتب نگه دار.",
                 modifier = Modifier.fillMaxWidth(),
                 textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(14.dp))
             Button(onClick = onCreate) {
-                Icon(Icons.Rounded.Add, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
+                Icon(Icons.Rounded.Add, contentDescription = null, Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
                 Text("ساخت دسته")
             }
         }
@@ -451,74 +440,73 @@ private fun CategoryColumn(
 
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(28.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(Modifier.fillMaxSize()) {
-            Column(
-                Modifier
+        Column(Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
                     .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.primaryContainer)
-                    .padding(start = 16.dp, end = 8.dp, top = 14.dp, bottom = 12.dp)
+                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.78f))
+                    .padding(start = 12.dp, end = 3.dp, top = 9.dp, bottom = 9.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            text = category.title,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Black,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = "${category.packages.size} برنامه",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.72f)
-                        )
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = category.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Black,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = "${category.packages.size} برنامه",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.65f)
+                    )
+                }
+                Box {
+                    IconButton(
+                        onClick = { menuOpen = true },
+                        modifier = Modifier.size(34.dp)
+                    ) {
+                        Icon(Icons.Rounded.MoreVert, contentDescription = "گزینه‌های دسته", Modifier.size(20.dp))
                     }
-                    Box {
-                        IconButton(onClick = { menuOpen = true }) {
-                            Icon(Icons.Rounded.MoreVert, contentDescription = "گزینه‌های دسته")
-                        }
-                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                            DropdownMenuItem(
-                                text = { Text("ویرایش نام دسته") },
-                                leadingIcon = { Icon(Icons.Rounded.Edit, contentDescription = null) },
-                                onClick = {
-                                    menuOpen = false
-                                    onRenameCategory()
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("حذف دسته") },
-                                leadingIcon = { Icon(Icons.Rounded.DeleteOutline, contentDescription = null) },
-                                onClick = {
-                                    menuOpen = false
-                                    onDeleteCategory()
-                                }
-                            )
-                        }
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        DropdownMenuItem(
+                            text = { Text("ویرایش نام دسته") },
+                            leadingIcon = { Icon(Icons.Rounded.Edit, contentDescription = null) },
+                            onClick = {
+                                menuOpen = false
+                                onRenameCategory()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("حذف دسته") },
+                            leadingIcon = { Icon(Icons.Rounded.DeleteOutline, contentDescription = null) },
+                            onClick = {
+                                menuOpen = false
+                                onDeleteCategory()
+                            }
+                        )
                     }
                 }
             }
 
             if (category.packages.isEmpty()) {
-                Box(
-                    Modifier.weight(1f).fillMaxWidth().padding(18.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        "هنوز برنامه‌ای در این ستون نیست",
-                        textAlign = TextAlign.Center,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                Text(
+                    text = "هنوز برنامه‌ای اضافه نشده",
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 22.dp),
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             } else {
                 LazyColumn(
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
-                    contentPadding = PaddingValues(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 390.dp),
+                    contentPadding = PaddingValues(7.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     items(category.packages, key = { it }) { pkg ->
                         AppRow(
@@ -532,14 +520,16 @@ private fun CategoryColumn(
                 }
             }
 
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
             FilledTonalButton(
                 onClick = onPickApps,
-                modifier = Modifier.fillMaxWidth().padding(10.dp)
+                modifier = Modifier.fillMaxWidth().padding(7.dp).height(40.dp),
+                shape = RoundedCornerShape(14.dp),
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
             ) {
-                Icon(Icons.Rounded.Add, contentDescription = null)
-                Spacer(Modifier.width(6.dp))
-                Text("افزودن برنامه", fontWeight = FontWeight.Bold)
+                Icon(Icons.Rounded.Add, contentDescription = null, Modifier.size(17.dp))
+                Spacer(Modifier.width(5.dp))
+                Text("افزودن برنامه", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -557,26 +547,29 @@ private fun AppRow(
 
     Surface(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onLaunch),
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.46f)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 10.dp, end = 4.dp, top = 9.dp, bottom = 9.dp),
+            modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 2.dp, top = 6.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            AppIcon(packageName, Modifier.size(48.dp))
-            Spacer(Modifier.width(9.dp))
+            AppIcon(packageName, Modifier.size(38.dp))
+            Spacer(Modifier.width(7.dp))
             Text(
                 text = displayName,
                 modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.SemiBold,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
             Box {
-                IconButton(onClick = { menuOpen = true }) {
-                    Icon(Icons.Rounded.MoreVert, contentDescription = "ویرایش برنامه")
+                IconButton(
+                    onClick = { menuOpen = true },
+                    modifier = Modifier.size(34.dp)
+                ) {
+                    Icon(Icons.Rounded.MoreVert, contentDescription = "ویرایش برنامه", Modifier.size(19.dp))
                 }
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                     DropdownMenuItem(
@@ -608,7 +601,7 @@ private fun AppIcon(packageName: String, modifier: Modifier = Modifier) {
         value = withContext(Dispatchers.IO) {
             runCatching {
                 context.packageManager.getApplicationIcon(packageName)
-                    .toBitmap(128, 128)
+                    .toBitmap(112, 112)
                     .asImageBitmap()
             }.getOrNull()
         }
@@ -623,10 +616,10 @@ private fun AppIcon(packageName: String, modifier: Modifier = Modifier) {
         )
     } else {
         Box(
-            modifier.background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(14.dp)),
+            modifier.background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(11.dp)),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Rounded.Apps, contentDescription = null, Modifier.size(24.dp))
+            Icon(Icons.Rounded.Apps, contentDescription = null, Modifier.size(20.dp))
         }
     }
 }
@@ -654,13 +647,9 @@ private fun CategoryDialog(
             )
         },
         confirmButton = {
-            Button(enabled = value.isNotBlank(), onClick = { onSave(value) }) {
-                Text("ذخیره")
-            }
+            Button(enabled = value.isNotBlank(), onClick = { onSave(value) }) { Text("ذخیره") }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("انصراف") }
-        }
+        dismissButton = { TextButton(onClick = onDismiss) { Text("انصراف") } }
     )
 }
 
@@ -679,11 +668,11 @@ private fun AppNameDialog(
         text = {
             Column {
                 Text(
-                    "این تغییر فقط داخل دسته‌یار نمایش داده می‌شود و نام برنامه اصلی گوشی تغییر نمی‌کند.",
+                    "این نام فقط داخل دسته‌یار تغییر می‌کند.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(10.dp))
                 OutlinedTextField(
                     value = value,
                     onValueChange = { value = it },
@@ -694,14 +683,8 @@ private fun AppNameDialog(
                 )
             }
         },
-        confirmButton = {
-            Button(onClick = { onSave(value) }) {
-                Text("ذخیره")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("انصراف") }
-        }
+        confirmButton = { Button(onClick = { onSave(value) }) { Text("ذخیره") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("انصراف") } }
     )
 }
 
@@ -716,12 +699,8 @@ private fun ConfirmDeleteDialog(
         onDismissRequest = onDismiss,
         title = { Text(title, fontWeight = FontWeight.Black) },
         text = { Text(body) },
-        confirmButton = {
-            Button(onClick = onConfirm) { Text("حذف") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("انصراف") }
-        }
+        confirmButton = { Button(onClick = onConfirm) { Text("حذف") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("انصراف") } }
     )
 }
 
@@ -738,14 +717,13 @@ private fun AppPickerDialog(
     }
     val filtered = remember(apps, query) {
         if (query.isBlank()) apps else apps.filter {
-            it.label.contains(query, ignoreCase = true) ||
-                it.packageName.contains(query, ignoreCase = true)
+            it.label.contains(query, ignoreCase = true) || it.packageName.contains(query, ignoreCase = true)
         }
     }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("انتخاب برنامه‌های ${category.title}", fontWeight = FontWeight.Black) },
+        title = { Text("برنامه‌های ${category.title}", fontWeight = FontWeight.Black) },
         text = {
             Column(Modifier.fillMaxWidth()) {
                 OutlinedTextField(
@@ -756,25 +734,25 @@ private fun AppPickerDialog(
                     placeholder = { Text("جست‌وجوی برنامه") },
                     singleLine = true
                 )
-                Spacer(Modifier.height(8.dp))
-                LazyColumn(Modifier.fillMaxWidth().height(420.dp)) {
+                Spacer(Modifier.height(6.dp))
+                LazyColumn(Modifier.fillMaxWidth().height(360.dp)) {
                     items(filtered, key = { it.packageName }) { app ->
                         val checked = app.packageName in selected
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
-                                    if (checked) selected.remove(app.packageName)
-                                    else selected.add(app.packageName)
+                                    if (checked) selected.remove(app.packageName) else selected.add(app.packageName)
                                 }
-                                .padding(vertical = 7.dp),
+                                .padding(vertical = 5.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            AppIcon(app.packageName, Modifier.size(42.dp))
-                            Spacer(Modifier.width(10.dp))
+                            AppIcon(app.packageName, Modifier.size(38.dp))
+                            Spacer(Modifier.width(8.dp))
                             Text(
                                 app.label,
                                 modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodySmall,
                                 fontWeight = FontWeight.SemiBold,
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis
@@ -782,8 +760,7 @@ private fun AppPickerDialog(
                             Checkbox(
                                 checked = checked,
                                 onCheckedChange = {
-                                    if (checked) selected.remove(app.packageName)
-                                    else selected.add(app.packageName)
+                                    if (checked) selected.remove(app.packageName) else selected.add(app.packageName)
                                 }
                             )
                         }
@@ -793,14 +770,12 @@ private fun AppPickerDialog(
         },
         confirmButton = {
             Button(onClick = { onSave(selected.toList()) }) {
-                Icon(Icons.Rounded.Check, contentDescription = null)
-                Spacer(Modifier.width(6.dp))
+                Icon(Icons.Rounded.Check, contentDescription = null, Modifier.size(18.dp))
+                Spacer(Modifier.width(5.dp))
                 Text("ثبت ${selected.size} برنامه")
             }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("انصراف") }
-        }
+        dismissButton = { TextButton(onClick = onDismiss) { Text("انصراف") } }
     )
 }
 
@@ -843,36 +818,32 @@ private fun DasteYarTheme(content: @Composable () -> Unit) {
     val dark = isSystemInDarkTheme()
     val colors = if (dark) {
         darkColorScheme(
-            primary = Color(0xFFAEC6FF),
-            onPrimary = Color(0xFF08235A),
-            primaryContainer = Color(0xFF173A72),
-            onPrimaryContainer = Color(0xFFD9E2FF),
-            secondary = Color(0xFFC4C7D0),
-            secondaryContainer = Color(0xFF43464E),
-            background = Color(0xFF101116),
-            surface = Color(0xFF181A20),
-            surfaceVariant = Color(0xFF2A2D35),
-            outline = Color(0xFF8E909A)
+            primary = Color(0xFFAFC8F4),
+            onPrimary = Color(0xFF102A4B),
+            primaryContainer = Color(0xFF243C5E),
+            onPrimaryContainer = Color(0xFFD9E7FF),
+            secondary = Color(0xFFC4C8D0),
+            secondaryContainer = Color(0xFF3E444D),
+            background = Color(0xFF111318),
+            surface = Color(0xFF191C21),
+            surfaceVariant = Color(0xFF292D33),
+            outline = Color(0xFF8B9098)
         )
     } else {
         lightColorScheme(
-            primary = Color(0xFF355C9A),
+            primary = Color(0xFF315E92),
             onPrimary = Color.White,
-            primaryContainer = Color(0xFFDCE6FF),
-            onPrimaryContainer = Color(0xFF0B2B5A),
-            secondary = Color(0xFF5A6070),
-            secondaryContainer = Color(0xFFE4E7EF),
-            background = Color(0xFFF6F7FB),
+            primaryContainer = Color(0xFFE4EDF8),
+            onPrimaryContainer = Color(0xFF173553),
+            secondary = Color(0xFF5B6470),
+            secondaryContainer = Color(0xFFE9EDF2),
+            background = Color(0xFFF7F8FA),
             surface = Color(0xFFFFFFFF),
-            surfaceVariant = Color(0xFFF0F2F7),
-            outline = Color(0xFF767984)
+            surfaceVariant = Color(0xFFF1F3F6),
+            outline = Color(0xFF7A818A)
         )
     }
 
     val typography = remember { createVazirTypography() }
-    MaterialTheme(
-        colorScheme = colors,
-        typography = typography,
-        content = content
-    )
+    MaterialTheme(colorScheme = colors, typography = typography, content = content)
 }
