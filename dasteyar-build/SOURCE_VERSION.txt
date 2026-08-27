@@ -1,0 +1,3 @@
+OmniBox / کتابخانه
+Source version: 1.3.0
+Includes two installable flavors: OmniBox and Ketabkhane.
