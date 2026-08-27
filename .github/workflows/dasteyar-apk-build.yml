@@ -1,4 +1,4 @@
-name: OmniBox Dual Android APK
+name: OmniBox Android APK
 
 on:
   push:
@@ -18,15 +18,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Upload source
-        uses: actions/upload-artifact@v4
-        with:
-          name: OmniBox-Ketabkhane-source-v1.3.0
-          path: |
-            dasteyar-build/**
-            !dasteyar-build/**/build/**
-          if-no-files-found: error
-          retention-days: 7
       - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
@@ -36,18 +27,26 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.13"
-      - name: Build both debug APKs
+      - name: Build OmniBox debug APK
         working-directory: dasteyar-build
-        run: gradle :app:assembleOmniboxDebug :app:assembleKetabkhaneDebug --stacktrace
-      - name: Prepare named APKs
+        run: gradle :app:assembleDebug --stacktrace
+      - name: Prepare APK
         run: |
           mkdir -p output
-          cp dasteyar-build/app/build/outputs/apk/omnibox/debug/app-omnibox-debug.apk output/OmniBox-v1.3.0.apk
-          cp dasteyar-build/app/build/outputs/apk/ketabkhane/debug/app-ketabkhane-debug.apk output/Ketabkhane-v1.3.0.apk
-      - name: Upload APKs
+          cp dasteyar-build/app/build/outputs/apk/debug/app-debug.apk output/OmniBox-v1.4.0-fast.apk
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: OmniBox-and-Ketabkhane-v1.3.0
-          path: output/*.apk
+          name: OmniBox-v1.4.0-fast
+          path: output/OmniBox-v1.4.0-fast.apk
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload source
+        uses: actions/upload-artifact@v4
+        with:
+          name: OmniBox-source-v1.4.0
+          path: |
+            dasteyar-build/**
+            !dasteyar-build/**/build/**
           if-no-files-found: error
           retention-days: 7
