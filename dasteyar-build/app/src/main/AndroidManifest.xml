@@ -15,7 +15,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.DasteYar">
         <activity
-            android:name=".OmniFastActivity"
+            android:name=".OmniUltraActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
