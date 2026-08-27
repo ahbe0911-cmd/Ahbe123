@@ -1,3 +1,6 @@
+import java.util.Base64
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -28,12 +31,17 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true; buildConfig = true }
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
 
     val generatedOmniRes = layout.buildDirectory.dir("generated/omnibox/res").get().asFile
     sourceSets.getByName("main").res.srcDir(generatedOmniRes)
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_17)
+    }
 }
 
 val prepareOmniBoxIcon by tasks.registering {
@@ -45,7 +53,7 @@ val prepareOmniBoxIcon by tasks.registering {
         val target = output.get().asFile
         target.parentFile.mkdirs()
         val encoded = source.asFile.readText().trim()
-        target.writeBytes(java.util.Base64.getDecoder().decode(encoded))
+        target.writeBytes(Base64.getDecoder().decode(encoded))
     }
 }
 
