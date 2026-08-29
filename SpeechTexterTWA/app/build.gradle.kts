@@ -42,6 +42,11 @@ android {
         checkReleaseBuilds = true
         warningsAsErrors = true
         checkDependencies = true
+        // AGP 8.13 officially supports up to API 36. GitHub's runner also
+        // installs the Android 17/API 37 preview, which makes lint report the
+        // supported target as "old" even though compiling against 37 would be
+        // outside this stable AGP's compatibility range.
+        disable += "OldTargetApi"
     }
 
     packaging {
