@@ -11,8 +11,8 @@ android {
         applicationId = "ir.ahmad.speechtexter.twa"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.0.1"
 
     }
 
@@ -65,6 +65,8 @@ android {
 
 dependencies {
     implementation("com.google.androidbrowserhelper:androidbrowserhelper:2.7.3")
+    // Force the current stable AndroidX Browser instead of ABH's older transitive version.
+    implementation("androidx.browser:browser:1.10.0")
 }
 
 val verifyTwaConfig by tasks.registering {
@@ -73,12 +75,16 @@ val verifyTwaConfig by tasks.registering {
 
     val manifestFile = layout.projectDirectory.file("src/main/AndroidManifest.xml")
     val stringsFile = layout.projectDirectory.file("src/main/res/values/strings.xml")
+    val launcherFile = layout.projectDirectory.file(
+        "src/main/java/ir/ahmad/speechtexter/twa/SafeLauncherActivity.java"
+    )
 
-    inputs.files(manifestFile, stringsFile)
+    inputs.files(manifestFile, stringsFile, launcherFile)
 
     doLast {
         val manifest = manifestFile.asFile.readText()
         val strings = stringsFile.asFile.readText()
+        val launcher = launcherFile.asFile.readText()
 
         require("https://www.speechtexter.com/" in strings) {
             "SpeechTexter HTTPS launch URL is missing"
@@ -94,6 +100,15 @@ val verifyTwaConfig by tasks.registering {
         }
         require("android.permission.WRITE_EXTERNAL_STORAGE" !in manifest) {
             "Legacy broad storage permission must not be present"
+        }
+        require(".SafeLauncherActivity" in manifest) {
+            "Crash-safe launcher must remain the entry activity"
+        }
+        require("android:launchMode=\"singleTask\"" !in manifest) {
+            "LauncherActivity must not use the incompatible singleTask launch mode"
+        }
+        require("getFallbackStrategy" in launcher && "catch (RuntimeException" in launcher) {
+            "Browser fallback crash guard is missing"
         }
     }
 }

@@ -34,9 +34,8 @@
             android:resource="@string/asset_statements" />
 
         <activity
-            android:name="com.google.androidbrowserhelper.trusted.LauncherActivity"
+            android:name=".SafeLauncherActivity"
             android:exported="true"
-            android:launchMode="singleTask"
             android:theme="@style/Theme.SpeechTexterTwa">
 
             <meta-data

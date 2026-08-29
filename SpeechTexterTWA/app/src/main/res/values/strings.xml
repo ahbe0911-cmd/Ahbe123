@@ -3,4 +3,8 @@
     <string name="app_name">تایپ صوتی</string>
     <string name="launch_url" translatable="false">https://www.speechtexter.com/</string>
     <string name="asset_statements" translatable="false">[{"relation":["delegate_permission/common.handle_all_urls"],"target":{"namespace":"web","site":"https://www.speechtexter.com"}}]</string>
+    <string name="browser_error_title">مرورگر مناسب پیدا نشد</string>
+    <string name="browser_error_message">برای اجرای تایپ صوتی، Chrome یا یک مرورگر به‌روز را نصب یا فعال کنید.</string>
+    <string name="retry">تلاش دوباره</string>
+    <string name="close">بستن</string>
 </resources>
