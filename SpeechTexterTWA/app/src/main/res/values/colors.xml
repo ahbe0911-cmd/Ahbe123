@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="brand_primary">#008B8B</color>
+    <color name="brand_background">#F4FBFB</color>
+    <color name="status_bar_color">#008B8B</color>
+    <color name="status_bar_color_dark">#004F52</color>
+    <color name="navigation_bar_color">#F4FBFB</color>
+    <color name="navigation_bar_color_dark">#071F21</color>
+    <color name="launcher_background">#008B8B</color>
+</resources>

@@ -1,0 +1,54 @@
+name: Build SpeechTexter TWA APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - speechtexter-twa-v1
+    paths:
+      - "SpeechTexterTWA/**"
+      - ".github/workflows/speechtexter-twa.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Set up Gradle 8.13
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.13"
+
+      - name: Verify, lint and build APKs
+        working-directory: SpeechTexterTWA
+        run: gradle --no-daemon --no-configuration-cache clean check lintRelease assembleDebug assembleRelease
+
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpeechTexterTWA-v1.0.0-debug
+          path: SpeechTexterTWA/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload optimized unsigned release
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpeechTexterTWA-v1.0.0-release-unsigned
+          path: SpeechTexterTWA/app/build/outputs/apk/release/app-release-unsigned.apk
+          if-no-files-found: error
+          retention-days: 30
