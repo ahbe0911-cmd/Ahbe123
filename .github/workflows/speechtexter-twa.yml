@@ -40,7 +40,7 @@ jobs:
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: SpeechTexterTWA-v1.0.1-debug
+          name: SpeechTexterTWA-v2.0.0-debug
           path: SpeechTexterTWA/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
@@ -48,7 +48,7 @@ jobs:
       - name: Upload optimized unsigned release
         uses: actions/upload-artifact@v4
         with:
-          name: SpeechTexterTWA-v1.0.1-release-unsigned
+          name: SpeechTexterTWA-v2.0.0-release-unsigned
           path: SpeechTexterTWA/app/build/outputs/apk/release/app-release-unsigned.apk
           if-no-files-found: error
           retention-days: 30

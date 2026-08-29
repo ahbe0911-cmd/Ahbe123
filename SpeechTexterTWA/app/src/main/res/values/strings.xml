@@ -7,4 +7,78 @@
     <string name="browser_error_message">برای اجرای تایپ صوتی، Chrome یا یک مرورگر به‌روز را نصب یا فعال کنید.</string>
     <string name="retry">تلاش دوباره</string>
     <string name="close">بستن</string>
+
+    <string name="home_title">تایپ صوتی هوشمند</string>
+    <string name="home_subtitle">گفتار را سریع بنویس، ذخیره و کپی کن</string>
+    <string name="open_original_site">باز کردن سایت اصلی</string>
+    <string name="speech_status_ready">برای شروع، دکمه میکروفون را بزنید</string>
+    <string name="speech_status_listening">در حال شنیدن… صحبت کنید</string>
+    <string name="speech_status_processing">در حال تبدیل گفتار به متن…</string>
+    <string name="speech_status_paused">تایپ صوتی متوقف شد</string>
+    <string name="speech_status_copied">متن جدید اضافه و خودکار کپی شد</string>
+    <string name="speech_result_added">متن جدید اضافه شد</string>
+    <string name="speech_no_input">صدایی دریافت نشد؛ برای شروع دوباره میکروفون را بزنید</string>
+    <string name="partial_result_hint">متن موقت اینجا نمایش داده می‌شود</string>
+    <string name="editor_hint">متن گفتار شما اینجا نوشته می‌شود…</string>
+    <string name="language">زبان تشخیص</string>
+    <string name="auto_copy">کپی خودکار نتیجه</string>
+    <string name="continuous_mode">تایپ صوتی پیوسته</string>
+    <string name="punctuation_commands">فرمان‌های علائم نگارشی</string>
+    <string name="dark_mode">حالت تاریک</string>
+    <string name="start_listening">شروع تایپ صوتی</string>
+    <string name="stop_listening">توقف تایپ صوتی</string>
+    <string name="copy_text">کپی متن</string>
+    <string name="save_text">ذخیره متن</string>
+    <string name="share_text">اشتراک‌گذاری</string>
+    <string name="history">تاریخچه</string>
+    <string name="clear_text">پاک‌کردن</string>
+    <string name="export_txt">خروجی TXT</string>
+    <string name="export_pdf">خروجی PDF</string>
+    <string name="empty_text">هنوز متنی نوشته نشده است.</string>
+    <string name="text_copied">متن کپی شد</string>
+    <string name="clipboard_label">متن تایپ صوتی</string>
+    <string name="text_saved">متن با موفقیت ذخیره شد</string>
+    <string name="export_saved">فایل با موفقیت ذخیره شد</string>
+    <string name="export_failed">ذخیره فایل انجام نشد</string>
+    <string name="microphone_permission_title">اجازه استفاده از میکروفون</string>
+    <string name="microphone_permission_message">برای تبدیل گفتار به متن، دسترسی میکروفون لازم است. صدا توسط سرویس تشخیص گفتار دستگاه پردازش می‌شود.</string>
+    <string name="permission_denied">بدون اجازه میکروفون، تایپ صوتی فعال نمی‌شود.</string>
+    <string name="permission_denied_permanently">دسترسی میکروفون بسته است. برای فعال‌کردن تایپ صوتی، مجوز میکروفون را از تنظیمات برنامه روشن کنید.</string>
+    <string name="allow_microphone">اجازه می‌دهم</string>
+    <string name="open_settings">باز کردن تنظیمات</string>
+    <string name="recognizer_unavailable_title">تشخیص گفتار در دسترس نیست</string>
+    <string name="recognizer_unavailable_message">سرویس تشخیص گفتار دستگاه فعال نیست. می‌توانید از سایت اصلی استفاده کنید.</string>
+    <string name="network_speech_error">ارتباط سرویس گفتار برقرار نشد؛ اینترنت و سرویس تشخیص گفتار را بررسی کنید.</string>
+    <string name="speech_busy_error">سرویس گفتار مشغول است؛ چند لحظه بعد دوباره امتحان کنید.</string>
+    <string name="speech_generic_error">تبدیل گفتار انجام نشد؛ دوباره تلاش کنید.</string>
+    <string name="confirm_clear_title">پاک‌کردن متن؟</string>
+    <string name="confirm_clear_message">متن فعلی پاک می‌شود؛ این کار قابل بازگشت نیست.</string>
+    <string name="confirm_delete_title">حذف این متن؟</string>
+    <string name="confirm_delete_all_title">حذف تمام تاریخچه؟</string>
+    <string name="confirm_delete_all_message">همه متن‌های ذخیره‌شده برای همیشه حذف می‌شوند.</string>
+    <string name="cancel">انصراف</string>
+    <string name="delete">حذف</string>
+    <string name="delete_all">حذف همه</string>
+    <string name="word_count_format">%1$s کلمه • %2$s نویسه</string>
+    <string name="history_title">متن‌های ذخیره‌شده</string>
+    <string name="search_history_hint">جستجو در متن‌ها…</string>
+    <string name="history_empty">هنوز متنی ذخیره نشده است.</string>
+    <string name="use_text">بازکردن</string>
+    <string name="back">بازگشت</string>
+    <string name="saved_at_format">ذخیره: %1$s</string>
+    <string name="pdf_title">متن تایپ صوتی</string>
+    <string name="file_name_txt" translatable="false">SpeechTexter-%1$s.txt</string>
+    <string name="file_name_pdf" translatable="false">SpeechTexter-%1$s.pdf</string>
+    <string name="share_chooser">اشتراک متن با…</string>
+    <string name="draft_restored">پیش‌نویس قبلی بازیابی شد</string>
+    <string name="voice_command_help">فرمان‌ها: «نقطه»، «ویرگول»، «علامت سؤال»، «خط جدید»</string>
+
+    <string-array name="speech_languages">
+        <item>فارسی</item>
+        <item>English</item>
+    </string-array>
+    <string-array name="speech_language_codes" translatable="false">
+        <item>fa-IR</item>
+        <item>en-US</item>
+    </string-array>
 </resources>

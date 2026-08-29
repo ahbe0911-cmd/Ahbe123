@@ -1,10 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="brand_primary">#008B8B</color>
-    <color name="brand_background">#F4FBFB</color>
-    <color name="status_bar_color">#008B8B</color>
-    <color name="status_bar_color_dark">#004F52</color>
-    <color name="navigation_bar_color">#F4FBFB</color>
-    <color name="navigation_bar_color_dark">#071F21</color>
-    <color name="launcher_background">#008B8B</color>
+    <color name="brand_primary">#006D77</color>
+    <color name="brand_primary_dark">#004F57</color>
+    <color name="brand_secondary">#E76F51</color>
+    <color name="brand_background">#F5F8F9</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="surface_variant">#E9F1F2</color>
+    <color name="text_primary">#172326</color>
+    <color name="text_secondary">#607176</color>
+    <color name="outline">#CFDCDE</color>
+    <color name="on_primary">#FFFFFF</color>
+    <color name="success">#197A55</color>
+    <color name="error">#B3261E</color>
+    <color name="ripple_light">#26006D77</color>
+    <color name="status_bar_color">#006D77</color>
+    <color name="status_bar_color_dark">#003C43</color>
+    <color name="navigation_bar_color">#F5F8F9</color>
+    <color name="navigation_bar_color_dark">#091719</color>
+    <color name="launcher_background">#006D77</color>
 </resources>

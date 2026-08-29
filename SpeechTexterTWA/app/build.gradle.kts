@@ -11,8 +11,8 @@ android {
         applicationId = "ir.ahmad.speechtexter.twa"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 3
+        versionName = "2.0.0"
 
     }
 
@@ -67,6 +67,9 @@ dependencies {
     implementation("com.google.androidbrowserhelper:androidbrowserhelper:2.7.3")
     // Force the current stable AndroidX Browser instead of ABH's older transitive version.
     implementation("androidx.browser:browser:1.10.0")
+    implementation("androidx.appcompat:appcompat:1.7.1")
+
+    testImplementation("junit:junit:4.13.2")
 }
 
 val verifyTwaConfig by tasks.registering {
@@ -78,13 +81,21 @@ val verifyTwaConfig by tasks.registering {
     val launcherFile = layout.projectDirectory.file(
         "src/main/java/ir/ahmad/speechtexter/twa/SafeLauncherActivity.java"
     )
+    val mainActivityFile = layout.projectDirectory.file(
+        "src/main/java/ir/ahmad/speechtexter/twa/MainActivity.java"
+    )
+    val repositoryFile = layout.projectDirectory.file(
+        "src/main/java/ir/ahmad/speechtexter/twa/TranscriptRepository.java"
+    )
 
-    inputs.files(manifestFile, stringsFile, launcherFile)
+    inputs.files(manifestFile, stringsFile, launcherFile, mainActivityFile, repositoryFile)
 
     doLast {
         val manifest = manifestFile.asFile.readText()
         val strings = stringsFile.asFile.readText()
         val launcher = launcherFile.asFile.readText()
+        val mainActivity = mainActivityFile.asFile.readText()
+        val repository = repositoryFile.asFile.readText()
 
         require("https://www.speechtexter.com/" in strings) {
             "SpeechTexter HTTPS launch URL is missing"
@@ -95,20 +106,26 @@ val verifyTwaConfig by tasks.registering {
         require("android:usesCleartextTraffic=\"false\"" in manifest) {
             "Cleartext traffic must stay disabled"
         }
-        require("android.permission.RECORD_AUDIO" !in manifest) {
-            "The TWA host must not request microphone access; Chrome owns that permission"
+        require("android.permission.RECORD_AUDIO" in manifest) {
+            "Native speech recognition requires RECORD_AUDIO"
         }
         require("android.permission.WRITE_EXTERNAL_STORAGE" !in manifest) {
             "Legacy broad storage permission must not be present"
         }
-        require(".SafeLauncherActivity" in manifest) {
-            "Crash-safe launcher must remain the entry activity"
+        require(".MainActivity" in manifest && ".SafeLauncherActivity" in manifest) {
+            "Both the native home and crash-safe TWA launcher must remain available"
         }
         require("android:launchMode=\"singleTask\"" !in manifest) {
             "LauncherActivity must not use the incompatible singleTask launch mode"
         }
         require("getFallbackStrategy" in launcher && "catch (RuntimeException" in launcher) {
             "Browser fallback crash guard is missing"
+        }
+        require("SpeechRecognizer" in mainActivity && "setPrimaryClip" in mainActivity) {
+            "Native speech recognition or automatic clipboard support is missing"
+        }
+        require("SQLiteOpenHelper" in repository && "content_hash" in repository) {
+            "Deduplicated persistent history is missing"
         }
     }
 }
