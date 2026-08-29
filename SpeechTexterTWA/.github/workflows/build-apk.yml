@@ -27,7 +27,12 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Verify, lint and build
-        run: ./gradlew --no-daemon clean check lintRelease assembleDebug assembleRelease
+        run: |
+          if ! ./gradlew --no-daemon clean check lintRelease assembleDebug assembleRelease; then
+            find app/build -type f -name "lint-results-*.txt" \
+              -exec sed -n '1,320p' {} \;
+            exit 1
+          fi
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4

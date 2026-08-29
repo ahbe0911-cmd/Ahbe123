@@ -35,7 +35,12 @@ jobs:
 
       - name: Verify, lint and build APKs
         working-directory: SpeechTexterTWA
-        run: gradle --no-daemon --no-configuration-cache clean check lintRelease assembleDebug assembleRelease
+        run: |
+          if ! gradle --no-daemon --no-configuration-cache clean check lintRelease assembleDebug assembleRelease; then
+            find app/build -type f -name "lint-results-*.txt" \
+              -exec sed -n '1,320p' {} \;
+            exit 1
+          fi
 
       - name: Upload installable APK
         uses: actions/upload-artifact@v4

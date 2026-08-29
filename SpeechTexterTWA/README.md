@@ -22,7 +22,7 @@
 - \`compileSdk/targetSdk 36\`
 - Android Browser Helper \`2.7.3\`
 - AndroidX Browser \`1.10.0\`
-- AndroidX AppCompat \`1.7.1\`
+- AndroidX AppCompat \`1.8.0\`
 - فقط HTTPS؛ ترافیک Cleartext غیرفعال است
 - بدون مجوز گسترده فایل؛ خروجی‌ها با Document Provider خود اندروید ذخیره می‌شوند
 - ساخت Release با R8 و حذف منابع بلااستفاده

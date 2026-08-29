@@ -67,7 +67,7 @@ dependencies {
     implementation("com.google.androidbrowserhelper:androidbrowserhelper:2.7.3")
     // Force the current stable AndroidX Browser instead of ABH's older transitive version.
     implementation("androidx.browser:browser:1.10.0")
-    implementation("androidx.appcompat:appcompat:1.7.1")
+    implementation("androidx.appcompat:appcompat:1.8.0")
 
     testImplementation("junit:junit:4.13.2")
 }
