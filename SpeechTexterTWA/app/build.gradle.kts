@@ -14,7 +14,10 @@ android {
         versionCode = 1
         versionName = "1.0.0"
 
-        resourceConfigurations += listOf("fa", "en")
+    }
+
+    androidResources {
+        localeFilters += listOf("fa", "en")
     }
 
     buildTypes {
