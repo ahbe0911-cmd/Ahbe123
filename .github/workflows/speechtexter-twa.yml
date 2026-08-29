@@ -57,7 +57,7 @@ jobs:
         run: |
           tar -czf /tmp/android-signing-tools.tar.gz \
             -C "$ANDROID_SDK_ROOT/build-tools/36.0.0" \
-            apksigner lib/apksigner.jar zipalign
+            apksigner lib/apksigner.jar zipalign lib64/libc++.so
 
       - name: Upload APK signing utilities
         uses: actions/upload-artifact@v4
