@@ -3,7 +3,7 @@ name: VoxFa Android Build
 on:
   workflow_dispatch:
   push:
-    branches: ["voxfa-mvp-build"]
+    branches: ["voxfa-mvp-build", "voxfa-v1.3-continuous"]
     paths:
       - "voxfa-project/**"
       - ".github/workflows/voxfa-mvp-build.yml"
@@ -19,6 +19,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Materialize VoxFa 1.3 sources
+        if: github.ref_name == 'voxfa-v1.3-continuous'
+        run: python3 voxfa-project/scripts/materialize-v13.py
 
       - name: Verify source tree
         run: |
@@ -57,19 +61,26 @@ jobs:
           APK=voxfa-project/app/build/outputs/apk/debug/app-debug.apk
           test -s "$APK"
           mkdir -p release
-          cp "$APK" release/VoxFa-v1.2.0-Vivid.apk
-          sha256sum release/VoxFa-v1.2.0-Vivid.apk | tee release/SHA256.txt
+          if [ "${GITHUB_REF_NAME}" = "voxfa-v1.3-continuous" ]; then
+            OUT_APK=VoxFa-v1.3.0-Continuous.apk
+            OUT_SRC=VoxFa-v1.3.0-source.zip
+          else
+            OUT_APK=VoxFa-v1.2.0-Vivid.apk
+            OUT_SRC=VoxFa-v1.2.0-source.zip
+          fi
+          cp "$APK" "release/$OUT_APK"
+          sha256sum "release/$OUT_APK" | tee release/SHA256.txt
           rm -rf voxfa-project/app/build voxfa-project/.gradle voxfa-project/app/src/main/res/font
-          zip -qr release/VoxFa-v1.2.0-source.zip voxfa-project
-          test -s release/VoxFa-v1.2.0-source.zip
+          zip -qr "release/$OUT_SRC" voxfa-project
+          test -s "release/$OUT_SRC"
 
       - name: Upload installable APK and source
         uses: actions/upload-artifact@v4
         with:
-          name: VoxFa-v1.2.0-Vivid
+          name: VoxFa-${{ github.ref_name }}
           path: |
-            release/VoxFa-v1.2.0-Vivid.apk
-            release/VoxFa-v1.2.0-source.zip
+            release/*.apk
+            release/*-source.zip
             release/SHA256.txt
           if-no-files-found: error
           retention-days: 30
