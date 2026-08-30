@@ -1,0 +1,68 @@
+name: ScanYar Next Android Build
+
+on:
+  push:
+    branches:
+      - scanyar-next-apk-build
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Accept SDK licenses
+        shell: bash
+        run: yes | sdkmanager --licenses >/dev/null || true
+
+      - name: Install Android native toolchain
+        shell: bash
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "ndk;27.0.12077973" "cmake;3.22.1"
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Restore ScanYar Next source
+        shell: bash
+        run: |
+          cat scanyar-android.xz.part00 scanyar-android.xz.part01 | base64 -d > scanyar.tar.xz
+          echo "648ae9501cc6d575d21f27473a66849b86e8db6f33f733acb5a0bcd29341f277  scanyar.tar.xz" | sha256sum -c -
+          mkdir scanyar
+          tar -xJf scanyar.tar.xz -C scanyar
+
+      - name: Fetch OpenCV Android SDK
+        shell: bash
+        run: |
+          cd scanyar
+          bash scripts/fetch_opencv_android.sh 4.12.0
+
+      - name: Build debug APK
+        shell: bash
+        run: |
+          cd scanyar
+          gradle -p android assembleDebug --stacktrace
+
+      - name: Prepare APK
+        shell: bash
+        run: cp scanyar/android/app/build/outputs/apk/debug/app-debug.apk ScanYar-Next-0.1.0-debug.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ScanYar-Next-APK
+          path: ScanYar-Next-0.1.0-debug.apk
+          if-no-files-found: error
