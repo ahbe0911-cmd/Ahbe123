@@ -20,10 +20,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Restore VoxFa source
+      - name: Restore and verify VoxFa source
         run: |
           mkdir -p /tmp/voxfa-src
-          base64 -d voxfa-build/project.tgz.b64 > /tmp/voxfa-project.tgz
+          cat voxfa-build/chunk1.b64 voxfa-build/chunk2.b64 voxfa-build/chunk3.b64 voxfa-build/chunk4.b64 > /tmp/voxfa-project.b64
+          test "$(wc -c < /tmp/voxfa-project.b64)" -eq 15548
+          base64 -d /tmp/voxfa-project.b64 > /tmp/voxfa-project.tgz
+          echo "16701fb7858c835fdef8c09cbe3440d1293df60fe1d5cef1de79b342191d8ea1  /tmp/voxfa-project.tgz" | sha256sum -c -
           tar -xzf /tmp/voxfa-project.tgz -C /tmp/voxfa-src
           test -f /tmp/voxfa-src/VoxFa/settings.gradle.kts
 
