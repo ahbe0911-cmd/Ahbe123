@@ -11,6 +11,7 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.provider.Settings
 import android.view.Gravity
+import android.view.View
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.CheckBox
@@ -78,7 +79,7 @@ class MainActivity : Activity() {
             textSize = 14f
             isChecked = prefs.getBoolean(KEY_AUTO_START, true)
             setTextColor(Color.rgb(55, 58, 78))
-            layoutDirection = LAYOUT_DIRECTION_RTL
+            layoutDirection = View.LAYOUT_DIRECTION_RTL
             setOnCheckedChangeListener { _, checked ->
                 prefs.edit().putBoolean(KEY_AUTO_START, checked).apply()
             }
@@ -96,7 +97,7 @@ class MainActivity : Activity() {
             hint = "بعد از انتخاب VoxFa اینجا لمس کنید و صحبت کنید…"
             textSize = 15f
             gravity = Gravity.TOP or Gravity.RIGHT
-            textDirection = TEXT_DIRECTION_RTL
+            textDirection = View.TEXT_DIRECTION_RTL
             setPadding(dp(14), dp(12), dp(14), dp(12))
             minHeight = dp(82)
             background = rounded(Color.WHITE, 16f, Color.rgb(224, 226, 236))
