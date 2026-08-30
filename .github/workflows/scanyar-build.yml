@@ -1,0 +1,126 @@
+name: Build ScanYar 2.0
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - scanyar-build-2.0.0
+    paths:
+      - '_scanyar/min.part*.b64'
+      - '.github/workflows/scanyar-build.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: Android APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 35 SDK
+        shell: bash
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Restore ScanYar source
+        shell: bash
+        run: |
+          mkdir -p _build_scanyar
+          cat _scanyar/min.part*.b64 | base64 -d > "$RUNNER_TEMP/scanyar.tar.xz"
+          echo '8307de46f9359fdd2932ded57c7f370b61163b397dfe30824c1f410b8ceb12ed  '"$RUNNER_TEMP/scanyar.tar.xz" | sha256sum -c -
+          tar -xJf "$RUNNER_TEMP/scanyar.tar.xz" -C _build_scanyar
+
+      - name: Install web dependencies
+        working-directory: _build_scanyar
+        run: npm install --no-audit --no-fund
+
+      - name: Prepare offline Android assets
+        working-directory: _build_scanyar
+        run: npm run prepare:android
+
+      - name: Build installable APK
+        working-directory: _build_scanyar/android
+        run: gradle assembleDebug --no-daemon --stacktrace
+
+      - name: Rename APK
+        shell: bash
+        run: cp _build_scanyar/android/app/build/outputs/apk/debug/app-debug.apk ScanYar-Android-2.0.0.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ScanYar-Android-2.0.0
+          path: ScanYar-Android-2.0.0.apk
+          if-no-files-found: error
+          compression-level: 0
+
+  windows:
+    name: Windows EXE
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Restore ScanYar source
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force _build_scanyar | Out-Null
+          $parts = Get-ChildItem '_scanyar/min.part*.b64' | Sort-Object Name
+          if ($parts.Count -ne 4) { throw "Expected 4 source parts, found $($parts.Count)" }
+          $b64 = ($parts | ForEach-Object { Get-Content $_.FullName -Raw }) -join ''
+          $archive = Join-Path $env:RUNNER_TEMP 'scanyar.tar.xz'
+          [IO.File]::WriteAllBytes($archive, [Convert]::FromBase64String($b64))
+          $hash = (Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant()
+          if ($hash -ne '8307de46f9359fdd2932ded57c7f370b61163b397dfe30824c1f410b8ceb12ed') { throw "Source archive SHA256 mismatch: $hash" }
+          tar -xJf $archive -C _build_scanyar
+
+      - name: Install dependencies
+        working-directory: _build_scanyar
+        run: npm install --no-audit --no-fund
+
+      - name: Build Windows installer
+        working-directory: _build_scanyar
+        run: npm run dist:win
+
+      - name: Verify installer
+        shell: pwsh
+        run: |
+          $exe = '_build_scanyar/release/ScanYar-Windows-Setup-2.0.0-x64.exe'
+          if (-not (Test-Path $exe)) { throw "Installer not found: $exe" }
+          Get-Item $exe | Format-List FullName,Length
+
+      - name: Upload EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: ScanYar-Windows-2.0.0
+          path: _build_scanyar/release/ScanYar-Windows-Setup-2.0.0-x64.exe
+          if-no-files-found: error
+          compression-level: 0
