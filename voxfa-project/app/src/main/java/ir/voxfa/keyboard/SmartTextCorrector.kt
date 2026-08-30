@@ -46,6 +46,13 @@ object SmartTextCorrector {
 
     fun correctWord(word: String): String = highConfidence[word] ?: word
 
+    /**
+     * Corrects only complete Persian/letter word spans and preserves every space,
+     * line break and punctuation character exactly as received from speech recognition.
+     */
+    fun correctSentence(text: String): String =
+        Regex("[\\p{L}\\u200C]+").replace(text) { match -> correctWord(match.value) }
+
     fun suggestions(prefix: String): List<String> {
         val clean = prefix.trim()
         if (clean.isEmpty()) return listOf("سلام", "ممنون", "باشه")
