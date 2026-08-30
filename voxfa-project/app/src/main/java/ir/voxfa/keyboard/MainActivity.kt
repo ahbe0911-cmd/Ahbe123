@@ -44,7 +44,7 @@ class MainActivity : Activity() {
         })
 
         root.addView(TextView(this).apply {
-            text = "کیبورد فارسی با اولویت تایپ صوتی"
+            text = "کیبورد هوشمند فارسی و انگلیسی با تایپ صوتی"
             textSize = 15f
             setTextColor(Color.rgb(100, 103, 122))
             gravity = Gravity.CENTER
@@ -94,7 +94,7 @@ class MainActivity : Activity() {
         })
 
         root.addView(EditText(this).apply {
-            hint = "بعد از انتخاب VoxFa اینجا لمس کنید و صحبت کنید…"
+            hint = "بعد از انتخاب VoxFa اینجا لمس کنید؛ فارسی/English تایپ کنید یا صحبت کنید…"
             textSize = 15f
             gravity = Gravity.TOP or Gravity.RIGHT
             textDirection = View.TEXT_DIRECTION_RTL
