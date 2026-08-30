@@ -49,6 +49,11 @@ jobs:
           cat _scanyar/fix201.hex* | tr -d '\r\n ' | xxd -r -p > "$RUNNER_TEMP/fix201.zip"
           echo '499e0cae453c5d7f5db7e97542a16ed8527beb158d5673521fdb434cc14e90e9  '"$RUNNER_TEMP/fix201.zip" | sha256sum -c -
           unzip -o "$RUNNER_TEMP/fix201.zip" -d _build_scanyar
+      - name: Enable AndroidX
+        shell: bash
+        run: |
+          echo 'android.useAndroidX=true' >> _build_scanyar/android/gradle.properties
+          echo 'android.enableJetifier=true' >> _build_scanyar/android/gradle.properties
       - name: Install web dependencies
         working-directory: _build_scanyar
         run: npm install --no-audit --no-fund
