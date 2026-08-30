@@ -43,6 +43,15 @@ jobs:
           echo "648ae9501cc6d575d21f27473a66849b86e8db6f33f733acb5a0bcd29341f277  scanyar.tar.xz" | sha256sum -c -
           mkdir scanyar
           tar -xJf scanyar.tar.xz -C scanyar
+          cat >> scanyar/android/app/build.gradle.kts <<'EOF'
+
+          android {
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+          }
+          EOF
 
       - name: Fetch OpenCV Android SDK
         shell: bash
