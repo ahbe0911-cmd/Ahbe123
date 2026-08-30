@@ -1,0 +1,371 @@
+--- a/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt
++++ b/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt
+@@ -3,16 +3,19 @@
+ import android.Manifest
+ import android.content.ClipboardManager
+ import android.content.Context
++import android.content.res.ColorStateList
+ import android.content.Intent
+ import android.content.pm.PackageManager
+ import android.graphics.Color
+ import android.graphics.Typeface
+ import android.graphics.drawable.GradientDrawable
++import android.graphics.drawable.StateListDrawable
+ import android.inputmethodservice.InputMethodService
+ import android.os.Build
+ import android.os.Bundle
+ import android.os.Handler
+ import android.os.Looper
++import android.os.SystemClock
+ import android.speech.RecognitionListener
+ import android.speech.RecognizerIntent
+ import android.speech.SpeechRecognizer
+@@ -45,6 +48,15 @@
+     private var languageMode = LanguageMode.PERSIAN
+     private var utterancePrefix = ""
+     private var lastPartialText = ""
++    private var speechComposingActive = false
++    private var recognitionStartedAt = 0L
++    private var recognizerReadyAt = 0L
++    private var speechBeganAt = 0L
++    private var firstVoiceActivityAt = 0L
++    private var lastVoiceActivityAt = 0L
++    private var lastSpeechTextAt = 0L
++    private var hasSpeechTextThisSession = false
++    private var finalizeRequestedByWatchdog = false
+     private var quickEmojiMode = false
+     private var paletteIndex = 0
+ 
+@@ -170,15 +182,31 @@
+                 override fun onReadyForSpeech(params: Bundle?) {
+                     utterancePrefix = computeUtterancePrefix()
+                     lastPartialText = ""
++                    recognizerReadyAt = SystemClock.elapsedRealtime()
++                    speechBeganAt = 0L
++                    firstVoiceActivityAt = 0L
++                    lastVoiceActivityAt = 0L
++                    lastSpeechTextAt = 0L
++                    hasSpeechTextThisSession = false
++                    finalizeRequestedByWatchdog = false
+                     actuallyListening = true
+                     setVoiceUi(true, if (isPersian()) "دارم می‌شنوم… ادامه بده" else "Listening… keep speaking")
+                 }
+ 
+                 override fun onBeginningOfSpeech() {
++                    val now = SystemClock.elapsedRealtime()
++                    speechBeganAt = now
++                    if (firstVoiceActivityAt == 0L) firstVoiceActivityAt = now
++                    lastVoiceActivityAt = now
+                     setVoiceUi(true, if (isPersian()) "صدات رو گرفتم…" else "Voice detected…")
+                 }
+ 
+                 override fun onRmsChanged(rmsdB: Float) {
++                    val now = SystemClock.elapsedRealtime()
++                    if (rmsdB > 2.2f) {
++                        if (firstVoiceActivityAt == 0L) firstVoiceActivityAt = now
++                        lastVoiceActivityAt = now
++                    }
+                     val pulse = ((rmsdB + 2f) / 12f).coerceIn(0f, 1f)
+                     waveformView?.setRmsDb(rmsdB)
+                     micButton?.apply {
+@@ -201,7 +229,8 @@
+                 override fun onError(error: Int) {
+                     actuallyListening = false
+                     lastPartialText = ""
+-                    currentInputConnection?.finishComposingText()
++                    if (speechComposingActive) currentInputConnection?.finishComposingText()
++                    speechComposingActive = false
+                     val label = when (error) {
+                         SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT ->
+                             if (isPersian()) "منتظر صدای شما…" else "Waiting for voice…"
+@@ -222,6 +251,8 @@
+                 override fun onResults(results: Bundle?) {
+                     actuallyListening = false
+                     lastPartialText = ""
++                    hasSpeechTextThisSession = bestText(results).isNotBlank() || hasSpeechTextThisSession
++                    lastSpeechTextAt = SystemClock.elapsedRealtime()
+                     commitSpeechBundle(results)
+                     setVoiceUi(false, if (isPersian()) "آماده ادامه صحبت…" else "Ready for more…")
+                     if (wantListening) scheduleRestart(140)
+@@ -233,12 +264,17 @@
+                     val normalized = normalizeSpeech(partial)
+                     if (normalized.isBlank() || normalized == lastPartialText) return
+                     lastPartialText = normalized
++                    hasSpeechTextThisSession = true
++                    lastSpeechTextAt = SystemClock.elapsedRealtime()
++                    speechComposingActive = true
+                     currentInputConnection?.setComposingText(utterancePrefix + normalized, 1)
+                     showVoiceMessage(normalized)
+                 }
+ 
+                 override fun onSegmentResults(segmentResults: Bundle) {
+                     lastPartialText = ""
++                    hasSpeechTextThisSession = bestText(segmentResults).isNotBlank() || hasSpeechTextThisSession
++                    lastSpeechTextAt = SystemClock.elapsedRealtime()
+                     commitSpeechBundle(segmentResults)
+                     utterancePrefix = computeUtterancePrefix()
+                     actuallyListening = true
+@@ -248,7 +284,8 @@
+                 override fun onEndOfSegmentedSession() {
+                     actuallyListening = false
+                     lastPartialText = ""
+-                    currentInputConnection?.finishComposingText()
++                    if (speechComposingActive) currentInputConnection?.finishComposingText()
++                    speechComposingActive = false
+                     setVoiceUi(false, if (isPersian()) "مکث؛ آماده ادامه…" else "Pause; ready to continue…")
+                     if (wantListening) scheduleRestart(180)
+                 }
+@@ -313,8 +350,12 @@
+     private fun commitSpeechBundle(bundle: Bundle?) {
+         val text = normalizeSpeech(bestText(bundle))
+         if (text.isBlank()) return
++        speechComposingActive = true
+         currentInputConnection?.setComposingText(utterancePrefix + text, 1)
+         currentInputConnection?.finishComposingText()
++        speechComposingActive = false
++        hasSpeechTextThisSession = true
++        lastSpeechTextAt = SystemClock.elapsedRealtime()
+         showVoiceMessage(text)
+     }
+ 
+@@ -339,10 +380,20 @@
+     private fun startOneRecognition() {
+         if (!wantListening || actuallyListening || !isInputViewShown) return
+         mainHandler.removeCallbacks(restartRunnable)
++        mainHandler.removeCallbacks(speechWatchdogRunnable)
+         try {
+             actuallyListening = true
++            recognitionStartedAt = SystemClock.elapsedRealtime()
++            recognizerReadyAt = 0L
++            speechBeganAt = 0L
++            firstVoiceActivityAt = 0L
++            lastVoiceActivityAt = 0L
++            lastSpeechTextAt = 0L
++            hasSpeechTextThisSession = false
++            finalizeRequestedByWatchdog = false
+             setVoiceUi(true, if (isPersian()) "آماده‌سازی میکروفون…" else "Preparing microphone…")
+             speechRecognizer?.startListening(recognitionIntent())
++            ensureSpeechWatchdog()
+         } catch (_: Throwable) {
+             actuallyListening = false
+             setVoiceUi(false, if (isPersian()) "شروع میکروفون ناموفق بود" else "Could not start microphone")
+@@ -357,11 +408,13 @@
+     ) {
+         wantListening = false
+         mainHandler.removeCallbacks(restartRunnable)
++        mainHandler.removeCallbacks(speechWatchdogRunnable)
+         try {
+             if (cancel) speechRecognizer?.cancel() else if (actuallyListening) speechRecognizer?.stopListening()
+         } catch (_: Throwable) {}
+         actuallyListening = false
+-        if (clearComposing) currentInputConnection?.finishComposingText()
++        if (clearComposing && speechComposingActive) currentInputConnection?.finishComposingText()
++        if (clearComposing) speechComposingActive = false
+         setVoiceUi(false, if (isPersian()) "میکروفون خاموش" else "Microphone off")
+         if (playFeedback) audioFeedback.playMicrophoneStopped()
+     }
+@@ -375,10 +428,64 @@
+     }
+ 
+     private fun restartDelayFor(error: Int): Long = when (error) {
+-        SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> 220L
+-        SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> 700L
+-        SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT, SpeechRecognizer.ERROR_SERVER -> 1_200L
+-        else -> 450L
++        SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> 180L
++        SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> 650L
++        SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT, SpeechRecognizer.ERROR_SERVER -> 1_000L
++        else -> 380L
++    }
++
++    /**
++     * Some recognizer implementations can stay in a listening state without ever
++     * emitting partial text. Keep the mic continuous, but recover only when the
++     * engine is demonstrably stuck or speech has ended without text.
++     */
++    private val speechWatchdogRunnable = object : Runnable {
++        override fun run() {
++            if (!wantListening) return
++            val now = SystemClock.elapsedRealtime()
++            if (actuallyListening) {
++                val waitingForReady = recognizerReadyAt == 0L && recognitionStartedAt > 0L &&
++                    now - recognitionStartedAt > 3_400L
++                if (waitingForReady) {
++                    hardRecoverRecognizer(if (isPersian()) "بازیابی میکروفون…" else "Recovering microphone…")
++                    return
++                }
++
++                val voiceStart = when {
++                    speechBeganAt > 0L -> speechBeganAt
++                    firstVoiceActivityAt > 0L -> firstVoiceActivityAt
++                    else -> 0L
++                }
++                if (voiceStart > 0L && !hasSpeechTextThisSession && !finalizeRequestedByWatchdog) {
++                    val speechAge = now - voiceStart
++                    val quietFor = if (lastVoiceActivityAt > 0L) now - lastVoiceActivityAt else Long.MAX_VALUE
++                    // Normal case: the user has paused after speaking but the service
++                    // produced no partial result. Ask it to finalize instead of hanging.
++                    if ((speechAge > 1_700L && quietFor > 520L) || speechAge > 7_000L) {
++                        finalizeRequestedByWatchdog = true
++                        setVoiceUi(true, if (isPersian()) "در حال تبدیل صدا…" else "Converting speech…")
++                        runCatching { speechRecognizer?.stopListening() }
++                            .onFailure { hardRecoverRecognizer(if (isPersian()) "بازیابی تشخیص صوت…" else "Recovering speech…") }
++                    }
++                }
++            }
++            if (wantListening) mainHandler.postDelayed(this, 320L)
++        }
++    }
++
++    private fun ensureSpeechWatchdog() {
++        mainHandler.removeCallbacks(speechWatchdogRunnable)
++        if (wantListening) mainHandler.postDelayed(speechWatchdogRunnable, 320L)
++    }
++
++    private fun hardRecoverRecognizer(message: String) {
++        mainHandler.removeCallbacks(speechWatchdogRunnable)
++        runCatching { speechRecognizer?.cancel() }
++        actuallyListening = false
++        speechComposingActive = false
++        setVoiceUi(true, message)
++        prepareRecognizer()
++        if (wantListening) scheduleRestart(180L)
+     }
+ 
+     private fun showKeyboard() {
+@@ -392,7 +499,7 @@
+ 
+         if (numberMode) addNumberKeyboard() else addAlphabetKeyboard()
+ 
+-        refreshSuggestions()
++        refreshSuggestions(immediate = true)
+         updateMicStyle(wantListening || actuallyListening)
+     }
+ 
+@@ -723,7 +830,14 @@
+         }
+     }
+ 
+-    private fun refreshSuggestions() {
++    private val suggestionRefreshRunnable = Runnable { refreshSuggestionsNow() }
++
++    private fun refreshSuggestions(immediate: Boolean = false) {
++        mainHandler.removeCallbacks(suggestionRefreshRunnable)
++        if (immediate) refreshSuggestionsNow() else mainHandler.postDelayed(suggestionRefreshRunnable, 72L)
++    }
++
++    private fun refreshSuggestionsNow() {
+         if (suggestionViews.isEmpty() || actuallyListening) return
+         quickEmojiMode = false
+         setFeedbackExpanded(false)
+@@ -822,7 +936,7 @@
+     }
+ 
+     private fun commitKey(key: String) {
+-        if (actuallyListening) stopSpeechLoop(clearComposing = true)
++        if (wantListening || actuallyListening) stopSpeechLoop(clearComposing = true)
+         commit(key)
+         refreshSuggestions()
+     }
+@@ -853,12 +967,24 @@
+         setLineSpacing(0f, 0.94f)
+         textDirection = View.TEXT_DIRECTION_LTR
+         typeface = if (style == KeyStyle.SPACE) Typeface.create(vazirTypeface, Typeface.BOLD) else vazirTypeface
+-        setTextColor(palette.text)
+-        background = when (style) {
+-            KeyStyle.ACTION -> rounded(palette.action, 13f, palette.outline)
+-            KeyStyle.SPECIAL -> rounded(palette.special, 13f, palette.outline)
+-            KeyStyle.SPACE -> rounded(palette.key, 13f, palette.outline)
+-            KeyStyle.NORMAL -> rounded(palette.key, 13f, palette.outline)
++        val normalFill = when (style) {
++            KeyStyle.ACTION -> palette.action
++            KeyStyle.SPECIAL -> palette.special
++            KeyStyle.SPACE -> palette.key
++            KeyStyle.NORMAL -> palette.key
++        }
++        setTextColor(
++            ColorStateList(
++                arrayOf(intArrayOf(android.R.attr.state_pressed), intArrayOf()),
++                intArrayOf(Color.WHITE, palette.text)
++            )
++        )
++        background = StateListDrawable().apply {
++            addState(
++                intArrayOf(android.R.attr.state_pressed),
++                rounded(palette.accent, 13f, palette.accentEnd)
++            )
++            addState(intArrayOf(), rounded(normalFill, 13f, palette.outline))
+         }
+         elevation = dp(if (style == KeyStyle.NORMAL || style == KeyStyle.ACTION) 1 else 0).toFloat()
+         isSoundEffectsEnabled = false
+@@ -875,16 +1001,21 @@
+         setOnTouchListener { view, event ->
+             when (event.actionMasked) {
+                 MotionEvent.ACTION_DOWN -> {
+-                    view.animate().scaleX(0.94f).scaleY(0.94f).setDuration(55).start()
++                    view.animate().cancel()
++                    view.isPressed = true
++                    view.scaleX = 0.965f
++                    view.scaleY = 0.965f
+                     true
+                 }
+                 MotionEvent.ACTION_UP -> {
+-                    view.animate().scaleX(1f).scaleY(1f).setDuration(80).start()
+                     view.performClick()
++                    view.postDelayed({ view.isPressed = false }, 48L)
++                    view.animate().scaleX(1f).scaleY(1f).setDuration(62L).start()
+                     true
+                 }
+                 MotionEvent.ACTION_CANCEL -> {
+-                    view.animate().scaleX(1f).scaleY(1f).setDuration(80).start()
++                    view.isPressed = false
++                    view.animate().scaleX(1f).scaleY(1f).setDuration(62L).start()
+                     true
+                 }
+                 else -> true
+@@ -945,8 +1076,12 @@
+     }
+ 
+     private fun commit(text: String) {
+-        currentInputConnection?.finishComposingText()
+-        currentInputConnection?.commitText(text, 1)
++        val ic = currentInputConnection ?: return
++        if (speechComposingActive) {
++            ic.finishComposingText()
++            speechComposingActive = false
++        }
++        ic.commitText(text, 1)
+     }
+ 
+     private fun deleteOne() {
+--- a/app/build.gradle.kts
++++ b/app/build.gradle.kts
+@@ -11,8 +11,8 @@
+         applicationId = "ir.voxfa.keyboard"
+         minSdk = 26
+         targetSdk = 35
+-        versionCode = 7
+-        versionName = "1.6.0-realtime-input"
++        versionCode = 8
++        versionName = "1.7.0-performance-voice"
+     }
+ 
+     buildTypes {
+--- a/README_FA.md
++++ b/README_FA.md
+@@ -1,4 +1,14 @@
+-# VoxFa 1.6
++# VoxFa 1.7
++
++## تغییرات نسخه 1.7.0
++- تایپ دستی سریع‌تر: محاسبه پیشنهادها از مسیر مستقیم لمس کلید خارج و debounce شده است.
++- چشمک فوری و واضح هر کلید با pressed-state بومی Android و بازگشت سریع بدون انیمیشن سنگین.
++- کاهش رفت‌وبرگشت غیرضروری InputConnection هنگام تایپ دستی.
++- Voice watchdog: اگر موتور تشخیص فقط گوش بدهد ولی متن ندهد، بعد از تشخیص مکث نهایی‌سازی را تحریک می‌کند.
++- بازیابی خودکار SpeechRecognizer اگر آماده‌شدن میکروفون گیر کند.
++- حفظ partial text → final text و segmented continuous dictation روی Android 13+.
++- کاهش زمان restart پس از timeout/no-match برای ادامه روان‌تر دیکته.
++
+ 
+ کیبورد فارسی اندروید با چیدمان استاندارد، صفحهٔ عددی ماشین‌حسابی و تایپ صوتی زنده.
+ 
