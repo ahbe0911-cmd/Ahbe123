@@ -1,15 +1,16 @@
-name: VoxFa v1.6 Realtime Build
+name: VoxFa v1.7 Performance Voice Build
 
 on:
   workflow_dispatch:
   push:
-    branches: ["voxfa-v1.6-realtime-build"]
+    branches: ["voxfa-v1.7-performance-voice"]
     paths:
-      - "voxfa-v1.6-payload/**"
+      - "voxfa-v1.7.patch"
       - ".github/workflows/voxfa-mvp-build.yml"
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   build:
@@ -20,45 +21,38 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Reconstruct exact VoxFa v1.6 source
+      - name: Download verified VoxFa v1.6 base artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: VoxFa-v1.6.0-RealtimeInput
+          path: base-artifact
+          github-token: ${{ github.token }}
+          repository: ahbe0911-cmd/Ahbe123
+          run-id: 33324167563
+
+      - name: Reconstruct and patch VoxFa v1.7 source
         shell: bash
         run: |
           set -euo pipefail
-          echo "a981f6eb121272ef1c7c46aaf0012af7ee81cdac072b788b77bb12aab53be831  voxfa-v1.6-payload/part00x0" > /tmp/parts.sha256
-          echo "8a17825f68c5e1a29c6ec12fdd78d5d6b9fdc0567c32daf07f218ddda871aa99  voxfa-v1.6-payload/part00x1" >> /tmp/parts.sha256
-          echo "f727078848a8a905272b1dad63f9fa48cbabd368df5e29c1a6f24764296d3bd5  voxfa-v1.6-payload/part00x2" >> /tmp/parts.sha256
-          echo "4da9c75efb55108360d75134d340de9c7c14b92e50d1426d6a23967658dba032  voxfa-v1.6-payload/part01" >> /tmp/parts.sha256
-          echo "20934a05a122110dc53a450c8042f90fd2ffe3772170b52498f0a79f049133cc  voxfa-v1.6-payload/part02" >> /tmp/parts.sha256
-          echo "366fc4458688c9acb1f14a3e74b596f1e9376126af36cc22ec6adfe2c62f615c  voxfa-v1.6-payload/part03" >> /tmp/parts.sha256
-          echo "66492bddc2add38adc3a5acbce16218bb3caf8c18a28505d660c4c2401182b97  voxfa-v1.6-payload/part04" >> /tmp/parts.sha256
-          echo "8c92024ec523ac9a3511d29ca3e248fccf20fda328b3ba2bbc50461448c8b5b6  voxfa-v1.6-payload/part05" >> /tmp/parts.sha256
-          sha256sum --check /tmp/parts.sha256
+          echo "45ef51ccf05a11a55ac2dd103e23ed9dd1f1df2b3cb174375e2ce3aa43617e8f  voxfa-v1.7.patch" | sha256sum --check --strict
+          test -s base-artifact/VoxFa-v1.6.0-source.zip
           rm -rf voxfa-project
-          cat voxfa-v1.6-payload/part00x0 \
-              voxfa-v1.6-payload/part00x1 \
-              voxfa-v1.6-payload/part00x2 \
-              voxfa-v1.6-payload/part01 \
-              voxfa-v1.6-payload/part02 \
-              voxfa-v1.6-payload/part03 \
-              voxfa-v1.6-payload/part04 \
-              voxfa-v1.6-payload/part05 \
-            | base64 --decode > /tmp/VoxFa-v1.6.0-source.tar.xz
-          echo "e224d23eceb7dd176d4fe7890d94acffadc8a8480d993b04e44595181618c6a8  /tmp/VoxFa-v1.6.0-source.tar.xz" | sha256sum --check --strict
           mkdir -p voxfa-project
-          tar -xJf /tmp/VoxFa-v1.6.0-source.tar.xz -C voxfa-project
+          unzip -q base-artifact/VoxFa-v1.6.0-source.zip -d voxfa-project
+          (cd voxfa-project && patch -p1 < ../voxfa-v1.7.patch)
 
-      - name: Verify v1.6 source tree
+      - name: Verify v1.7 source tree
         shell: bash
         run: |
           set -euo pipefail
           test -f voxfa-project/settings.gradle.kts
           test -f voxfa-project/app/src/main/AndroidManifest.xml
           test -f voxfa-project/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt
-          test -f voxfa-project/app/src/main/java/ir/voxfa/keyboard/KeyboardAudioFeedback.kt
-          test -f voxfa-project/app/src/main/java/ir/voxfa/keyboard/VoiceWaveformView.kt
-          test -f voxfa-project/scripts/fetch-vazirmatn.sh
-          grep -q 'versionCode = 7' voxfa-project/app/build.gradle.kts
-          grep -q 'versionName = "1.6.0-realtime-input"' voxfa-project/app/build.gradle.kts
+          grep -q 'versionCode = 8' voxfa-project/app/build.gradle.kts
+          grep -q 'versionName = "1.7.0-performance-voice"' voxfa-project/app/build.gradle.kts
+          grep -q 'speechWatchdogRunnable' voxfa-project/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt
+          grep -q 'StateListDrawable' voxfa-project/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt
+          grep -q 'suggestionRefreshRunnable' voxfa-project/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt
           grep -q 'FORMATTING_OPTIMIZE_LATENCY' voxfa-project/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt
 
       - name: Fetch Vazirmatn font and license
@@ -94,22 +88,22 @@ jobs:
           APK=voxfa-project/app/build/outputs/apk/debug/app-debug.apk
           test -s "$APK"
           mkdir -p release
-          cp "$APK" release/VoxFa-v1.6.0-RealtimeInput.apk
-          sha256sum release/VoxFa-v1.6.0-RealtimeInput.apk | tee release/SHA256.txt
-          cp /tmp/VoxFa-v1.6.0-source.tar.xz release/VoxFa-v1.6.0-source.tar.xz
-          rm -rf voxfa-project/app/build voxfa-project/.gradle voxfa-project/app/src/main/res/font
-          (cd voxfa-project && zip -qr ../release/VoxFa-v1.6.0-source.zip .)
-          test -s release/VoxFa-v1.6.0-source.zip
-          test -s release/VoxFa-v1.6.0-source.tar.xz
+          cp "$APK" release/VoxFa-v1.7.0-PerformanceVoice.apk
+          sha256sum release/VoxFa-v1.7.0-PerformanceVoice.apk | tee release/SHA256.txt
+          rm -rf voxfa-project/app/build voxfa-project/.gradle voxfa-project/.kotlin voxfa-project/app/src/main/res/font
+          (cd voxfa-project && zip -qr ../release/VoxFa-v1.7.0-source.zip .)
+          (cd voxfa-project && tar -cJf ../release/VoxFa-v1.7.0-source.tar.xz .)
+          test -s release/VoxFa-v1.7.0-source.zip
+          test -s release/VoxFa-v1.7.0-source.tar.xz
 
       - name: Upload installable APK and source
         uses: actions/upload-artifact@v4
         with:
-          name: VoxFa-v1.6.0-RealtimeInput
+          name: VoxFa-v1.7.0-PerformanceVoice
           path: |
-            release/VoxFa-v1.6.0-RealtimeInput.apk
-            release/VoxFa-v1.6.0-source.zip
-            release/VoxFa-v1.6.0-source.tar.xz
+            release/VoxFa-v1.7.0-PerformanceVoice.apk
+            release/VoxFa-v1.7.0-source.zip
+            release/VoxFa-v1.7.0-source.tar.xz
             release/SHA256.txt
           if-no-files-found: error
           retention-days: 30
