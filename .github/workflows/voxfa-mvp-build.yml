@@ -24,16 +24,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "7d1cf6ce7b09ca6fa51add684326d91200b4f23e0f03d122d38c85a1b147e40e  voxfa-v1.6-payload/part00" > /tmp/parts.sha256
+          echo "a981f6eb121272ef1c7c46aaf0012af7ee81cdac072b788b77bb12aab53be831  voxfa-v1.6-payload/part00x0" > /tmp/parts.sha256
+          echo "8a17825f68c5e1a29c6ec12fdd78d5d6b9fdc0567c32daf07f218ddda871aa99  voxfa-v1.6-payload/part00x1" >> /tmp/parts.sha256
+          echo "f727078848a8a905272b1dad63f9fa48cbabd368df5e29c1a6f24764296d3bd5  voxfa-v1.6-payload/part00x2" >> /tmp/parts.sha256
           echo "4da9c75efb55108360d75134d340de9c7c14b92e50d1426d6a23967658dba032  voxfa-v1.6-payload/part01" >> /tmp/parts.sha256
           echo "20934a05a122110dc53a450c8042f90fd2ffe3772170b52498f0a79f049133cc  voxfa-v1.6-payload/part02" >> /tmp/parts.sha256
           echo "366fc4458688c9acb1f14a3e74b596f1e9376126af36cc22ec6adfe2c62f615c  voxfa-v1.6-payload/part03" >> /tmp/parts.sha256
           echo "66492bddc2add38adc3a5acbce16218bb3caf8c18a28505d660c4c2401182b97  voxfa-v1.6-payload/part04" >> /tmp/parts.sha256
           echo "8c92024ec523ac9a3511d29ca3e248fccf20fda328b3ba2bbc50461448c8b5b6  voxfa-v1.6-payload/part05" >> /tmp/parts.sha256
           sha256sum --check /tmp/parts.sha256
-          wc -c voxfa-v1.6-payload/part0*
           rm -rf voxfa-project
-          cat voxfa-v1.6-payload/part00 \
+          cat voxfa-v1.6-payload/part00x0 \
+              voxfa-v1.6-payload/part00x1 \
+              voxfa-v1.6-payload/part00x2 \
               voxfa-v1.6-payload/part01 \
               voxfa-v1.6-payload/part02 \
               voxfa-v1.6-payload/part03 \
