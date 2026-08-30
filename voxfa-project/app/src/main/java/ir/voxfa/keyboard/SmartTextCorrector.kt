@@ -46,6 +46,12 @@ object SmartTextCorrector {
 
     fun correctWord(word: String): String = highConfidence[word] ?: word
 
+    fun correctSentence(text: String): String {
+        if (text.isBlank()) return text
+        val token = Regex("[\\p{L}\u200c]+")
+        return token.replace(text) { match -> correctWord(match.value) }
+    }
+
     fun suggestions(prefix: String): List<String> {
         val clean = prefix.trim()
         if (clean.isEmpty()) return listOf("سلام", "ممنون", "باشه")
