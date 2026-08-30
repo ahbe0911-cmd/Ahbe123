@@ -1,0 +1,68 @@
+name: VoxFa Android MVP Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["voxfa-mvp-build"]
+    paths:
+      - "voxfa-build/**"
+      - ".github/workflows/voxfa-mvp-build.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Restore VoxFa source
+        run: |
+          mkdir -p /tmp/voxfa-src
+          base64 -d voxfa-build/project.tgz.b64 > /tmp/voxfa-project.tgz
+          tar -xzf /tmp/voxfa-project.tgz -C /tmp/voxfa-src
+          test -f /tmp/voxfa-src/VoxFa/settings.gradle.kts
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+
+      - name: Build debug APK
+        run: gradle -p /tmp/voxfa-src/VoxFa --no-daemon clean assembleDebug
+
+      - name: Verify and stage APK
+        run: |
+          APK=/tmp/voxfa-src/VoxFa/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          mkdir -p release
+          cp "$APK" release/VoxFa-v1.0.0-MVP.apk
+          sha256sum release/VoxFa-v1.0.0-MVP.apk | tee release/SHA256.txt
+
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: VoxFa-APK
+          path: |
+            release/VoxFa-v1.0.0-MVP.apk
+            release/SHA256.txt
+          if-no-files-found: error
+          retention-days: 30
