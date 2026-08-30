@@ -1,0 +1,228 @@
+name: ScanYar Pro Quality Build
+
+on:
+  push:
+    branches:
+      - scanyar-pro-quality-base
+    paths:
+      - '.github/workflows/scanyar-pro-quality.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout build host
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android toolchain
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;29.0.14206865" "cmake;3.22.1"
+
+      - name: Clone proven scanner base
+        shell: bash
+        run: |
+          git clone --depth 1 https://github.com/Artemarius/DocShot.git scanyar-pro
+          cd scanyar-pro
+          git rev-parse HEAD | tee ../UPSTREAM_COMMIT.txt
+          cp LICENSE ../DOCSHOT_LICENSE.txt
+
+      - name: Apply ScanYar Pro product patch
+        shell: bash
+        run: |
+          cd scanyar-pro
+          python3 - <<'PY'
+          from pathlib import Path
+
+          gradle = Path('app/build.gradle.kts')
+          s = gradle.read_text()
+          s = s.replace('applicationId = "com.docshot"', 'applicationId = "ir.scanyar.pro"')
+          s = s.replace('versionCode = 3000014', 'versionCode = 4000001')
+          s = s.replace('versionName = "1.3.2"', 'versionName = "0.2.0"')
+          s = s.replace('isUniversalApk = false', 'isUniversalApk = true')
+          gradle.write_text(s)
+
+          manifest = Path('app/src/main/AndroidManifest.xml')
+          m = manifest.read_text()
+          m = m.replace('android:icon="@mipmap/ic_launcher"', 'android:icon="@drawable/ic_scanyar"')
+          m = m.replace('android:roundIcon="@mipmap/ic_launcher_round"', 'android:roundIcon="@drawable/ic_scanyar"')
+          m = m.replace('android:authorities="com.docshot.fileprovider"', 'android:authorities="${applicationId}.fileprovider"')
+          manifest.write_text(m)
+          PY
+
+          mkdir -p app/src/main/res/drawable app/src/main/res/raw
+          cat > app/src/main/res/drawable/ic_scanyar.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp" android:height="108dp"
+              android:viewportWidth="108" android:viewportHeight="108">
+              <path android:fillColor="#175CD3" android:pathData="M0,0h108v108h-108z"/>
+              <path android:fillColor="#FFFFFF" android:pathData="M31,22h35l13,13v51h-48z"/>
+              <path android:fillColor="#DCE9FF" android:pathData="M66,22v14h13z"/>
+              <path android:fillColor="#175CD3" android:pathData="M20,30h7v-7h12v5h-7v7h-12zM81,30h7v-7h-12v5h7v7h5zM20,78h7v7h12v-5h-7v-7h-12zM81,78h7v7h-12v-5h7v-7h5z"/>
+              <path android:fillColor="#94B9F8" android:pathData="M40,47h30v4h-30zM40,57h30v4h-30zM40,67h23v4h-23z"/>
+          </vector>
+          EOF
+
+          cat > app/src/main/res/raw/third_party_licenses.txt <<'EOF'
+          ScanYar Pro quality base includes software derived from DocShot.
+          DocShot copyright and license are preserved under the MIT License.
+          Original project: Artemarius/DocShot.
+
+          MIT License
+          Permission is hereby granted, free of charge, to any person obtaining a copy
+          of this software and associated documentation files (the "Software"), to deal
+          in the Software without restriction, including without limitation the rights
+          to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+          copies of the Software, subject to inclusion of the copyright and permission notice.
+          EOF
+
+      - name: Persian RTL localization
+        shell: bash
+        run: |
+          cd scanyar-pro
+          cat > app/src/main/res/values/strings.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <string name="app_name">اسکن‌یار پرو</string>
+              <string name="tab_camera">دوربین</string>
+              <string name="tab_import">وارد کردن</string>
+              <string name="cd_settings">تنظیمات</string>
+              <string name="capturing">در حال ثبت…</string>
+              <string name="cd_flash_off">خاموش کردن فلش</string>
+              <string name="cd_flash_on">روشن کردن فلش</string>
+              <string name="hint_move_back">کمی دورتر بروید تا کل سند داخل کادر قرار بگیرد</string>
+              <string name="hint_tap_capture">برای ثبت دستی لمس کنید</string>
+              <string name="cd_capture_document">ثبت سند</string>
+              <string name="cd_import_gallery">انتخاب از گالری</string>
+              <string name="cd_disable_auto_capture">خاموش کردن ثبت خودکار</string>
+              <string name="cd_enable_auto_capture">روشن کردن ثبت خودکار</string>
+              <string name="camera_permission_required">برای اسکن سند، دسترسی دوربین لازم است.</string>
+              <string name="no_camera_available">دوربین قابل استفاده‌ای روی دستگاه پیدا نشد.</string>
+              <string name="title_result">نتیجه اسکن</string>
+              <string name="cd_retake">عکس مجدد</string>
+              <string name="cd_disable_white_balance">خاموش کردن تراز سفیدی</string>
+              <string name="cd_enable_white_balance">روشن کردن تراز سفیدی</string>
+              <string name="cd_rotate">چرخاندن</string>
+              <string name="cd_adjust_corners">تنظیم گوشه‌ها</string>
+              <string name="filter_original">اصلی</string>
+              <string name="filter_rectified">اصلاح‌شده</string>
+              <string name="filter_bw">سیاه‌وسفید</string>
+              <string name="filter_contrast">کنتراست</string>
+              <string name="filter_even_light">نور یکنواخت</string>
+              <string name="cd_select_format">انتخاب قالب</string>
+              <string name="cd_lock_aspect_ratio">قفل نسبت تصویر</string>
+              <string name="cd_unlock_aspect_ratio">باز کردن نسبت تصویر</string>
+              <string name="cd_original_photo">عکس اصلی</string>
+              <string name="cd_filtered_document">سند فیلترشده</string>
+              <string name="cd_rectified_document">سند اصلاح‌شده</string>
+              <string name="action_share">اشتراک‌گذاری</string>
+              <string name="action_save">ذخیره</string>
+              <string name="title_adjust_corners">تنظیم دقیق گوشه‌ها</string>
+              <string name="cd_cancel">انصراف</string>
+              <string name="action_cancel">انصراف</string>
+              <string name="action_apply">اعمال</string>
+              <string name="cd_document_to_adjust">سند برای تنظیم گوشه‌ها</string>
+              <string name="action_select_photo">انتخاب عکس</string>
+              <string name="loading_image">در حال بارگذاری تصویر…</string>
+              <string name="rectifying_document">در حال اصلاح پرسپکتیو سند…</string>
+              <string name="saved_to_gallery">در گالری ذخیره شد</string>
+              <string name="save_failed">ذخیره انجام نشد</string>
+              <string name="title_settings">تنظیمات</string>
+              <string name="cd_back">بازگشت</string>
+              <string name="section_capture">ثبت تصویر</string>
+              <string name="setting_auto_capture">ثبت خودکار</string>
+              <string name="setting_auto_capture_desc">پس از تشخیص پایدار سند، تصویر را خودکار ثبت کن</string>
+              <string name="setting_haptic">بازخورد لرزشی</string>
+              <string name="setting_haptic_desc">هنگام ثبت تصویر لرزش کوتاه ایجاد شود</string>
+              <string name="setting_flash">فلش</string>
+              <string name="setting_flash_desc">برای محیط کم‌نور چراغ دوربین روشن شود</string>
+              <string name="setting_debug">اطلاعات تشخیص</string>
+              <string name="setting_debug_desc">زمان پردازش تشخیص روی پیش‌نمایش نمایش داده شود</string>
+              <string name="section_aspect_ratio">نسبت تصویر</string>
+              <string name="setting_ar_auto">تشخیص خودکار نسبت سند</string>
+              <string name="setting_ar_auto_desc">در حالت روشن، نسبت سند تخمین زده می‌شود؛ در حالت خاموش A4 مبناست.</string>
+              <string name="section_output">خروجی</string>
+              <string name="setting_wb">تراز سفیدی خودکار</string>
+              <string name="setting_wb_desc">ته‌رنگ ناشی از نور محیط به‌صورت خودکار اصلاح شود</string>
+              <string name="setting_format">فرمت</string>
+              <string name="setting_quality">کیفیت</string>
+              <string name="setting_quality_value">%1$d%%</string>
+              <string name="setting_default_filter">فیلتر پیش‌فرض</string>
+              <string name="filter_none">بدون فیلتر</string>
+              <string name="section_about">درباره برنامه</string>
+              <string name="setting_show_tutorial">نمایش آموزش</string>
+              <string name="setting_show_tutorial_desc">راهنمای شروع دوباره نمایش داده شود</string>
+              <string name="setting_privacy_policy">حریم خصوصی</string>
+              <string name="setting_privacy_policy_desc">پردازش روی دستگاه انجام می‌شود و تصویر برای سرور ارسال نمی‌شود</string>
+              <string name="setting_send_feedback">ارسال بازخورد</string>
+              <string name="setting_send_feedback_desc">گزارش مشکل یا پیشنهاد قابلیت</string>
+              <string name="setting_version">نسخه</string>
+              <string name="onboarding_skip">رد کردن</string>
+              <string name="onboarding_next">بعدی</string>
+              <string name="onboarding_get_started">شروع اسکن</string>
+              <string name="onboarding_title_1">دوربین را روی سند بگیرید</string>
+              <string name="onboarding_desc_1">اسکن‌یار پرو لبه‌های سند را به‌صورت زنده و خودکار تشخیص می‌دهد.</string>
+              <string name="onboarding_title_2">ثبت خودکار پس از ثابت شدن</string>
+              <string name="onboarding_desc_2">دوربین را لحظه‌ای ثابت نگه دارید؛ فوکوس قفل می‌شود و تصویر بدون لمس دکمه ثبت خواهد شد.</string>
+              <string name="onboarding_title_3">اصلاح، فیلتر و ذخیره</string>
+              <string name="onboarding_desc_3">گوشه‌ها و نسبت تصویر را دقیق کنید، فیلتر مناسب بزنید و نتیجه را ذخیره یا اشتراک‌گذاری کنید.</string>
+          </resources>
+          EOF
+
+      - name: Cache OpenCV Android SDK
+        id: cache-opencv
+        uses: actions/cache@v4
+        with:
+          path: ~/opencv-android-sdk
+          key: opencv-android-4.12.0
+
+      - name: Download OpenCV Android SDK
+        if: steps.cache-opencv.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          wget -q https://github.com/opencv/opencv/releases/download/4.12.0/opencv-4.12.0-android-sdk.zip -O /tmp/opencv.zip
+          unzip -q /tmp/opencv.zip -d ~/opencv-android-sdk
+          rm /tmp/opencv.zip
+
+      - name: Build and run unit tests
+        shell: bash
+        run: |
+          cd scanyar-pro
+          chmod +x gradlew
+          export OPENCV_ANDROID_SDK="$HOME/opencv-android-sdk/OpenCV-android-sdk"
+          ./gradlew testDebugUnitTest assembleDebug --no-daemon --stacktrace
+
+      - name: Prepare artifacts
+        shell: bash
+        run: |
+          mkdir -p out
+          find scanyar-pro/app/build/outputs/apk/debug -type f -name '*.apk' -print -exec cp {} out/ \;
+          cp UPSTREAM_COMMIT.txt DOCSHOT_LICENSE.txt out/
+          cd scanyar-pro
+          git diff > ../out/SCANYAR_PATCH.diff
+          cd ..
+          tar --exclude='.git' -czf out/ScanYar-Pro-0.2.0-source.tar.gz scanyar-pro
+          ls -lah out
+          sha256sum out/*.apk | tee out/APK-SHA256.txt
+
+      - name: Upload APK and source
+        uses: actions/upload-artifact@v4
+        with:
+          name: ScanYar-Pro-0.2.0-Quality-Base
+          path: out/*
+          if-no-files-found: error
+          retention-days: 30
