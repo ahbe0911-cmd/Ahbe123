@@ -7,6 +7,12 @@ object KeyboardLayouts {
         listOf("ظ", "ط", "ز", "ر", "ذ", "د", "پ", "و", "ژ", "،", "؟")
     )
 
+    val englishRows: List<List<String>> = listOf(
+        listOf("q", "w", "e", "r", "t", "y", "u", "i", "o", "p"),
+        listOf("a", "s", "d", "f", "g", "h", "j", "k", "l"),
+        listOf("z", "x", "c", "v", "b", "n", "m")
+    )
+
     val numberRows: List<List<String>> = listOf(
         listOf("۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹", "۰"),
         listOf("@", "#", "%", "&", "-", "+", "(", ")", "/", ":"),
