@@ -1,0 +1,15 @@
+package ir.voxfa.keyboard
+
+object KeyboardLayouts {
+    val persianRows: List<List<String>> = listOf(
+        listOf("ض", "ص", "ث", "ق", "ف", "غ", "ع", "ه", "خ", "ح", "ج", "چ"),
+        listOf("ش", "س", "ی", "ب", "ل", "ا", "ت", "ن", "م", "ک", "گ"),
+        listOf("ظ", "ط", "ز", "ر", "ذ", "د", "پ", "و", "ژ", "،", "؟")
+    )
+
+    val numberRows: List<List<String>> = listOf(
+        listOf("۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹", "۰"),
+        listOf("@", "#", "%", "&", "-", "+", "(", ")", "/", ":"),
+        listOf(".", "،", "؟", "!", "_", "=", "؛", "«", "»")
+    )
+}
