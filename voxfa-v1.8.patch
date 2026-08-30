@@ -1,0 +1,135 @@
+--- a/app/build.gradle.kts
++++ b/app/build.gradle.kts
+@@ -11,8 +11,8 @@
+         applicationId = "ir.voxfa.keyboard"
+         minSdk = 26
+         targetSdk = 35
+-        versionCode = 8
+-        versionName = "1.7.0-performance-voice"
++        versionCode = 9
++        versionName = "1.8.0-gboard-symbols"
+     }
+ 
+     buildTypes {
+--- a/app/src/main/java/ir/voxfa/keyboard/KeyboardLayouts.kt
++++ b/app/src/main/java/ir/voxfa/keyboard/KeyboardLayouts.kt
+@@ -26,6 +26,23 @@
+         listOf("z", "x", "c", "v", "b", "n", "m")
+     )
+ 
++
++    /** Gboard-style symbols page 1, visual left-to-right order. */
++    val gboardSymbolsPage1: List<List<String>> = listOf(
++        listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0"),
++        listOf("+", "×", "÷", "=", "/", "_", "<", ">", "[", "]"),
++        listOf("!", "@", "#", "﷼", "%", "^", "&", "*", "(", ")"),
++        listOf("-", "'", "\"", ":", "؛", "،", "؟")
++    )
++
++    /** Gboard-style symbols page 2, visual left-to-right order. */
++    val gboardSymbolsPage2: List<List<String>> = listOf(
++        listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0"),
++        listOf("`", "~", "\\", "|", "{", "}", "€", "£", "¥", "$"),
++        listOf("°", "•", "○", "●", "□", "■", "♠", "♡", "◇", "♣"),
++        listOf("☆", "▪", "¤", "«", "»", "¡", "¿")
++    )
++
+     /** Calculator-style number pad, again in visual order. */
+     val calculatorRows: List<List<String>> = listOf(
+         listOf("1", "2", "3"),
+--- a/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt
++++ b/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt
+@@ -568,62 +568,50 @@
+     }
+ 
+     private fun addNumberKeyboard() {
+-        val main = LinearLayout(this).apply {
+-            orientation = LinearLayout.HORIZONTAL
+-            gravity = Gravity.CENTER
+-            layoutDirection = View.LAYOUT_DIRECTION_LTR
+-            isSoundEffectsEnabled = false
++        val rows = if (symbolMode) {
++            KeyboardLayouts.gboardSymbolsPage2
++        } else {
++            KeyboardLayouts.gboardSymbolsPage1
+         }
+ 
+-        val operators = LinearLayout(this).apply {
+-            orientation = LinearLayout.VERTICAL
+-            gravity = Gravity.CENTER
+-        }
+-        KeyboardLayouts.calculatorOperators.forEach { operator ->
+-            val key = keyButton(operator, 1f, style = KeyStyle.SPECIAL) { commitKey(operator) }
+-            operators.addView(key, verticalKeyParams())
+-        }
+-        main.addView(operators, LinearLayout.LayoutParams(dp(58), -1))
+-
+-        val centre = LinearLayout(this).apply {
+-            orientation = LinearLayout.VERTICAL
+-            gravity = Gravity.CENTER
+-        }
+-        val centreRows = if (symbolMode) KeyboardLayouts.symbolPadRows else KeyboardLayouts.calculatorRows
+-        centreRows.forEach { keys ->
++        rows.forEachIndexed { index, keys ->
+             val row = horizontalRow()
+-            keys.forEach { key -> row.addView(keyButton(key, 1f, style = KeyStyle.NORMAL) { commitKey(key) }) }
+-            centre.addView(row, LinearLayout.LayoutParams(-1, 0, 1f))
++            if (index == rows.lastIndex) {
++                row.addView(keyButton(if (symbolMode) "2/2" else "1/2", 1.18f, style = KeyStyle.SPECIAL) {
++                    symbolMode = !symbolMode
++                    showKeyboard()
++                })
++            }
++            keys.forEach { key ->
++                row.addView(keyButton(key, 1f, style = KeyStyle.NORMAL) { commitKey(key) })
++            }
++            if (index == rows.lastIndex) {
++                row.addView(repeatingDeleteButton(weight = 1.18f))
++            }
++            container.addView(row, LinearLayout.LayoutParams(-1, dp(49)))
+         }
+-        main.addView(centre, LinearLayout.LayoutParams(0, -1, 1f))
+-
+-        val actions = LinearLayout(this).apply {
+-            orientation = LinearLayout.VERTICAL
+-            gravity = Gravity.CENTER
+-        }
+-        actions.addView(keyButton("%", 1f, style = KeyStyle.SPECIAL) { commitKey("%") }, verticalKeyParams())
+-        actions.addView(keyButton("( )", 1f, style = KeyStyle.SPECIAL) { commitKey("()") }, verticalKeyParams())
+-        actions.addView(repeatingDeleteButton(weight = 1f), verticalKeyParams())
+-        main.addView(actions, LinearLayout.LayoutParams(dp(58), -1))
+-        container.addView(main, LinearLayout.LayoutParams(-1, dp(188)))
+ 
+         val bottom = horizontalRow()
+-        bottom.addView(keyButton(if (isPersian()) "ابپ" else "ABC", 1.05f, style = KeyStyle.SPECIAL) {
++        bottom.addView(keyButton(if (isPersian()) "اب" else "ABC", 1.05f, style = KeyStyle.SPECIAL) {
+             numberMode = false
+             symbolMode = false
++            shiftEnabled = false
+             showKeyboard()
+         })
+-        bottom.addView(keyButton(if (isPersian()) "،" else ",", 0.58f, style = KeyStyle.SPECIAL) {
++        bottom.addView(iconKey(KeyboardIconButton.Icon.GLOBE, 0.78f, KeyStyle.SPECIAL, "تغییر زبان") {
++            toggleLanguage()
++        })
++        bottom.addView(keyButton(if (isPersian()) "،" else ",", 0.62f, style = KeyStyle.SPECIAL) {
+             commitKey(if (isPersian()) "،" else ",")
+         })
+-        bottom.addView(keyButton("!?#", 0.88f, style = KeyStyle.SPECIAL) {
+-            symbolMode = !symbolMode
+-            showKeyboard()
++        bottom.addView(keyButton(if (isPersian()) "فارسی" else "English", 3.25f, style = KeyStyle.SPACE) {
++            smartSpace()
++        })
++        bottom.addView(iconKey(KeyboardIconButton.Icon.CURSOR, 0.78f, KeyStyle.SPECIAL, "حرکت نشانگر") {
++            moveCursorLeft()
+         })
+-        bottom.addView(keyButton("0", 1.65f, style = KeyStyle.NORMAL) { commitKey("0") })
+-        bottom.addView(keyButton("=", 0.68f, style = KeyStyle.NORMAL) { commitKey("=") })
+-        bottom.addView(keyButton(".", 0.58f, style = KeyStyle.SPECIAL) { commitKey(".") })
+-        bottom.addView(iconKey(KeyboardIconButton.Icon.ENTER, 1.02f, KeyStyle.ACTION, "ورود") { sendEnter() })
++        bottom.addView(keyButton(".", 0.62f, style = KeyStyle.SPECIAL) { commitKey(".") })
++        bottom.addView(iconKey(KeyboardIconButton.Icon.ENTER, 1.05f, KeyStyle.ACTION, "ورود") { sendEnter() })
+         container.addView(bottom, LinearLayout.LayoutParams(-1, dp(58)))
+     }
+ 
