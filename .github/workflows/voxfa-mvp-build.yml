@@ -1,4 +1,4 @@
-name: VoxFa Android MVP Build
+name: VoxFa Android Build
 
 on:
   workflow_dispatch:
@@ -25,6 +25,10 @@ jobs:
           test -f voxfa-project/settings.gradle.kts
           test -f voxfa-project/app/src/main/AndroidManifest.xml
           test -f voxfa-project/app/src/main/java/ir/voxfa/keyboard/VoiceImeService.kt
+          test -f voxfa-project/scripts/fetch-vazirmatn.sh
+
+      - name: Fetch Vazirmatn font and license
+        run: bash voxfa-project/scripts/fetch-vazirmatn.sh
 
       - name: Setup Java 17
         uses: actions/setup-java@v4
@@ -53,18 +57,19 @@ jobs:
           APK=voxfa-project/app/build/outputs/apk/debug/app-debug.apk
           test -s "$APK"
           mkdir -p release
-          cp "$APK" release/VoxFa-v1.0.0-MVP.apk
-          sha256sum release/VoxFa-v1.0.0-MVP.apk | tee release/SHA256.txt
-          zip -qr release/VoxFa-source.zip voxfa-project
-          test -s release/VoxFa-source.zip
+          cp "$APK" release/VoxFa-v1.2.0-Vivid.apk
+          sha256sum release/VoxFa-v1.2.0-Vivid.apk | tee release/SHA256.txt
+          rm -rf voxfa-project/app/build voxfa-project/.gradle voxfa-project/app/src/main/res/font
+          zip -qr release/VoxFa-v1.2.0-source.zip voxfa-project
+          test -s release/VoxFa-v1.2.0-source.zip
 
       - name: Upload installable APK and source
         uses: actions/upload-artifact@v4
         with:
-          name: VoxFa-Release
+          name: VoxFa-v1.2.0-Vivid
           path: |
-            release/VoxFa-v1.0.0-MVP.apk
-            release/VoxFa-source.zip
+            release/VoxFa-v1.2.0-Vivid.apk
+            release/VoxFa-v1.2.0-source.zip
             release/SHA256.txt
           if-no-files-found: error
           retention-days: 30
