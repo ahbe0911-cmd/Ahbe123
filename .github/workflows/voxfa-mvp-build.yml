@@ -1,11 +1,11 @@
-name: VoxFa Android Build
+name: VoxFa v1.6 Realtime Build
 
 on:
   workflow_dispatch:
   push:
-    branches: ["voxfa-v1.3-voice"]
+    branches: ["voxfa-v1.6-realtime-build"]
     paths:
-      - "voxfa-project/**"
+      - "voxfa-v1.6-payload/**"
       - ".github/workflows/voxfa-mvp-build.yml"
 
 permissions:
@@ -20,12 +20,35 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Verify source tree
+      - name: Reconstruct exact VoxFa v1.6 source
+        shell: bash
         run: |
+          set -euo pipefail
+          rm -rf voxfa-project
+          cat voxfa-v1.6-payload/part00 \
+              voxfa-v1.6-payload/part01 \
+              voxfa-v1.6-payload/part02 \
+              voxfa-v1.6-payload/part03 \
+              voxfa-v1.6-payload/part04 \
+              voxfa-v1.6-payload/part05 \
+            | base64 --decode > /tmp/VoxFa-v1.6.0-source.tar.xz
+          echo "e224d23eceb7dd176d4fe7890d94acffadc8a8480d993b04e44595181618c6a8  /tmp/VoxFa-v1.6.0-source.tar.xz" | sha256sum --check --strict
+          mkdir -p voxfa-project
+          tar -xJf /tmp/VoxFa-v1.6.0-source.tar.xz -C voxfa-project
+
+      - name: Verify v1.6 source tree
+        shell: bash
+        run: |
+          set -euo pipefail
           test -f voxfa-project/settings.gradle.kts
           test -f voxfa-project/app/src/main/AndroidManifest.xml
           test -f voxfa-project/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt
+          test -f voxfa-project/app/src/main/java/ir/voxfa/keyboard/KeyboardAudioFeedback.kt
+          test -f voxfa-project/app/src/main/java/ir/voxfa/keyboard/VoiceWaveformView.kt
           test -f voxfa-project/scripts/fetch-vazirmatn.sh
+          grep -q 'versionCode = 7' voxfa-project/app/build.gradle.kts
+          grep -q 'versionName = "1.6.0-realtime-input"' voxfa-project/app/build.gradle.kts
+          grep -q 'FORMATTING_OPTIMIZE_LATENCY' voxfa-project/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt
 
       - name: Fetch Vazirmatn font and license
         run: bash voxfa-project/scripts/fetch-vazirmatn.sh
@@ -40,6 +63,7 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Install Android SDK packages
+        shell: bash
         run: |
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platforms;android-35" "build-tools;35.0.0"
@@ -53,23 +77,28 @@ jobs:
         run: gradle -p voxfa-project --no-daemon clean assembleDebug
 
       - name: Verify and stage outputs
+        shell: bash
         run: |
+          set -euo pipefail
           APK=voxfa-project/app/build/outputs/apk/debug/app-debug.apk
           test -s "$APK"
           mkdir -p release
-          cp "$APK" release/VoxFa-v1.3.0-Voice.apk
-          sha256sum release/VoxFa-v1.3.0-Voice.apk | tee release/SHA256.txt
+          cp "$APK" release/VoxFa-v1.6.0-RealtimeInput.apk
+          sha256sum release/VoxFa-v1.6.0-RealtimeInput.apk | tee release/SHA256.txt
+          cp /tmp/VoxFa-v1.6.0-source.tar.xz release/VoxFa-v1.6.0-source.tar.xz
           rm -rf voxfa-project/app/build voxfa-project/.gradle voxfa-project/app/src/main/res/font
-          zip -qr release/VoxFa-v1.3.0-source.zip voxfa-project
-          test -s release/VoxFa-v1.3.0-source.zip
+          (cd voxfa-project && zip -qr ../release/VoxFa-v1.6.0-source.zip .)
+          test -s release/VoxFa-v1.6.0-source.zip
+          test -s release/VoxFa-v1.6.0-source.tar.xz
 
       - name: Upload installable APK and source
         uses: actions/upload-artifact@v4
         with:
-          name: VoxFa-v1.3.0-Voice
+          name: VoxFa-v1.6.0-RealtimeInput
           path: |
-            release/VoxFa-v1.3.0-Voice.apk
-            release/VoxFa-v1.3.0-source.zip
+            release/VoxFa-v1.6.0-RealtimeInput.apk
+            release/VoxFa-v1.6.0-source.zip
+            release/VoxFa-v1.6.0-source.tar.xz
             release/SHA256.txt
           if-no-files-found: error
           retention-days: 30
