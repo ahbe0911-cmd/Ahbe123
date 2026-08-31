@@ -1,0 +1,142 @@
+of accumulating an ever-growing backlog.
++ */
++class OfflinePersianAsrEngine(
++    context: Context,
++    private val listener: Listener
++) {
++    interface Listener {
++        fun onModelLoading() = Unit
++        fun onReady() = Unit
++        fun onListening() = Unit
++        fun onSpeechStarted() = Unit
++        fun onSpeechEnded() = Unit
++        fun onRms(uiRmsDb: Float) = Unit
++        fun onPartial(text: String) = Unit
++        fun onFinal(text: String) = Unit
++        fun onProcessing() = Unit
++        fun onMetrics(metrics: Metrics) = Unit
++        fun onError(message: String, cause: Throwable? = null) = Unit
++        fun onStopped() = Unit
++    }
++
++    data class Metrics(
++        val queueMs: Long,
++        val inferenceMs: Double,
++        val droppedChunks: Long,
++        val realTimeFactor: Double
++    )
++
++    private data class AudioChunk(
++        val samples: ShortArray,
++        val length: Int,
++        val capturedAtMs: Long,
++        val rmsDbFs: Float
++    )
++
++    private val appContext = context.applicationContext
++    private val mainHandler = Handler(Looper.getMainLooper())
++    private val modelExecutor = Executors.newSingleThreadExecutor { r ->
++        Thread(r, "VoxFa-VoskModel").apply { priority = Thread.NORM_PRIORITY - 1 }
++    }
++
++    private val running = AtomicBoolean(false)
++    private val preparing = AtomicBoolean(false)
++    private val released = AtomicBoolean(false)
++    private val queue = ArrayBlockingQueue<AudioChunk>(QUEUE_CAPACITY)
++    private val bufferPool = ArrayBlockingQueue<ShortArray>(POOL_SIZE)
++
++    @Volatile private var model: Model? = null
++    @Volatile private var audioRecord: AudioRecord? = null
++    @Volatile private var captureThread: Thread? = null
++    @Volatile private var inferenceThread: Thread? = null
++    @Volatile private var stopFlushRequested = true
++    @Volatile private var droppedChunks: Long = 0L
++
++    init {
++        repeat(POOL_SIZE) { bufferPool.offer(ShortArray(CHUNK_SAMPLES)) }
++    }
++
++    fun isReady(): Boolean = model != null
++    fun isRunning(): Boolean = running.get()
++
++    fun prepare() {
++        if (released.get()) return
++        if (isReady()) {
++            post { listener.onReady() }
++            return
++        }
++        if (!preparing.compareAndSet(false, true)) return
++        post { listener.onModelLoading() }
++
++        modelExecutor.execute {
++            try {
++                val modelDir = ensureModelInstalled()
++                val loaded = Model(modelDir.absolutePath)
++                if (released.get()) {
++                    runCatching { loaded.close() }
++                } else {
++                    model = loaded
++                    post { listener.onReady() }
++                }
++            } catch (t: Throwable) {
++                post { listener.onError("مدل آفلاین فارسی بارگذاری نشد", t) }
++            } finally {
++                preparing.set(false)
++            }
++        }
++    }
++
++    fun start(): Boolean {
++        if (released.get()) return false
++        if (running.get()) return true
++        if (appContext.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
++            post { listener.onError("اجازه میکروفون لازم است") }
++            return false
++        }
++        val loadedModel = model ?: run {
++            prepare()
++            return false
++        }
++
++        clearQueuedAudio()
++        stopFlushRequested = true
++        if (!running.compareAndSet(false, true)) return true
++
++        val minBuffer = AudioRecord.getMinBufferSize(
++            SAMPLE_RATE,
++            AudioFormat.CHANNEL_IN_MONO,
++            AudioFormat.ENCODING_PCM_16BIT
++        )
++        if (minBuffer <= 0) {
++            running.set(false)
++            post { listener.onError("AudioRecord روی این دستگاه آماده نشد") }
++            return false
++        }
++
++        val record = createAudioRecord(max(minBuffer, CHUNK_SAMPLES * 2 * 4))
++        if (record == null || record.state != AudioRecord.STATE_INITIALIZED) {
++            runCatching { record?.release() }
++            running.set(false)
++            post { listener.onError("میکروفون قابل استفاده نیست") }
++            return false
++        }
++        audioRecord = record
++
++        val inference = Thread({ inferenceLoop(loadedModel) }, "VoxFa-ASR-Inference")
++        val capture = Thread({ captureLoop(record) }, "VoxFa-Audio-Capture")
++        inferenceThread = inference
++        captureThread = capture
++        inference.start()
++        capture.start()
++        return true
++    }
++
++    fun stop(flush: Boolean = true) {
++        if (!running.getAndSet(false)) {
++            post { listener.onStopped() }
++            return
++        }
++        stopFlushRequested = flush
++        val record = audioRecord
++        audioRecord = null
++        runCatching { if (record?.recordingState == AudioRecord.RECORDSTATE_RECORDING 
