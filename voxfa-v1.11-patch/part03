@@ -1,0 +1,190 @@
+OfSpeech() {
+-                    val now = SystemClock.elapsedRealtime()
+-                    speechBeganAt = now
+-                    if (firstVoiceActivityAt == 0L) firstVoiceActivityAt = now
+-                    lastVoiceActivityAt = now
+-                    setVoiceUi(true, if (isPersian()) "صدات رو گرفتم…" else "Voice detected…")
+-                }
+-
+-                override fun onRmsChanged(rmsdB: Float) {
+-                    val now = SystemClock.elapsedRealtime()
+-                    if (rmsdB > 2.2f) {
+-                        if (firstVoiceActivityAt == 0L) firstVoiceActivityAt = now
+-                        lastVoiceActivityAt = now
+-                    }
+-                    // SpeechRecognizer may emit RMS callbacks very rapidly. Updating
+-                    // multiple views on every callback competes with keyboard taps on
+-                    // the main thread, so render at ~25 fps while keeping voice timing
+-                    // measurements at full frequency.
+-                    if (now - lastRmsUiAt < 40L) return
+-                    lastRmsUiAt = now
+-                    val pulse = ((rmsdB + 2f) / 12f).coerceIn(0f, 1f)
+-                    waveformView?.setRmsDb(rmsdB)
+-                    micButton?.apply {
+-                        alpha = 0.86f + pulse * 0.14f
+-                        val scale = 1f + pulse * 0.05f
+-                        scaleX = scale
+-                        scaleY = scale
+-                    }
+-                }
+-
+-                override fun onBufferReceived(buffer: ByteArray?) = Unit
+-
+-                override fun onEndOfSpeech() {
+-                    if (!segmentedRequested) {
+-                        actuallyListening = false
+-                        setVoiceUi(true, if (isPersian()) "در حال نوشتن…" else "Writing…")
+-                    }
+-                }
+-
+-                override fun onError(error: Int) {
+-                    actuallyListening = false
+-                    lastPartialText = ""
+-                    if (speechComposingActive) currentInputConnection?.finishComposingText()
+-                    speechComposingActive = false
+-                    val label = when (error) {
+-                        SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT ->
+-                            if (isPersian()) "منتظر صدای شما…" else "Waiting for voice…"
+-                        SpeechRecognizer.ERROR_RECOGNIZER_BUSY ->
+-                            if (isPersian()) "موتور صوتی مشغول است" else "Speech engine busy"
+-                        SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT, SpeechRecognizer.ERROR_SERVER ->
+-                            if (isPersian()) "خطای اینترنت یا سرویس" else "Network/service error"
+-                        SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> {
+-                            wantListening = false
+-                            if (isPersian()) "اجازه میکروفون لازم است" else "Microphone permission required"
+-                        }
+-                        else -> if (isPersian()) "تشخیص صوت موقتاً متوقف شد" else "Speech recognition paused"
+-                    }
+-                    setVoiceUi(false, label)
+-                    if (wantListening) scheduleRestart(restartDelayFor(error))
+-                }
+-
+-                override fun onResults(results: Bundle?) {
+-                    actuallyListening = false
+-                    lastPartialText = ""
+-                    hasSpeechTextThisSession = bestText(results).isNotBlank() || hasSpeechTextThisSession
+-                    lastSpeechTextAt = SystemClock.elapsedRealtime()
+-                    commitSpeechBundle(results)
+-                    setVoiceUi(false, if (isPersian()) "آماده ادامه صحبت…" else "Ready for more…")
+-                    if (wantListening) scheduleRestart(140)
+-                }
+-
+-                override fun onPartialResults(partialResults: Bundle?) {
+-                    val partial = bestText(partialResults)
+-                    if (partial.isBlank()) return
+-                    val normalized = normalizeSpeech(partial)
+-                    if (normalized.isBlank() || normalized == lastPartialText) return
+-                    lastPartialText = normalized
+-                    hasSpeechTextThisSession = true
+-                    lastSpeechTextAt = SystemClock.elapsedRealtime()
+-                    speechComposingActive = true
+-                    currentInputConnection?.setComposingText(utterancePrefix + normalized, 1)
+-                    showVoiceMessage(normalized)
+-                }
+-
+-                override fun onSegmentResults(segmentResults: Bundle) {
+-                    lastPartialText = ""
+-                    hasSpeechTextThisSession = bestText(segmentResults).isNotBlank() || hasSpeechTextThisSession
+-                    lastSpeechTextAt = SystemClock.elapsedRealtime()
+-                    commitSpeechBundle(segmentResults)
+-                    utterancePrefix = computeUtterancePrefix()
+-                    actuallyListening = true
+-                    setVoiceUi(true, if (isPersian()) "دارم می‌شنوم… ادامه بده" else "Still listening…")
+-                }
+-
+-                override fun onEndOfSegmentedSession() {
+-                    actuallyListening = false
+-                    lastPartialText = ""
+-                    if (speechComposingActive) currentInputConnection?.finishComposingText()
+-                    speechComposingActive = false
+-                    setVoiceUi(false, if (isPersian()) "مکث؛ آماده ادامه…" else "Pause; ready to continue…")
+-                    if (wantListening) scheduleRestart(180)
+-                }
+-
+-                override fun onEvent(eventType: Int, params: Bundle?) = Unit
+-            })
+-        }
+-    }
+-
+-    private fun recognitionIntent(): Intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+-        val locale = if (isPersian()) "fa-IR" else "en-US"
+-        putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+-        putExtra(RecognizerIntent.EXTRA_LANGUAGE, locale)
+-        putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, locale)
+-        putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, packageName)
+-        putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+-        putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 8)
+-        putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, false)
+-
+-        segmentedRequested = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+-            putExtra(RecognizerIntent.EXTRA_ENABLE_FORMATTING, RecognizerIntent.FORMATTING_OPTIMIZE_LATENCY)
+-            putExtra(RecognizerIntent.EXTRA_HIDE_PARTIAL_TRAILING_PUNCTUATION, true)
+-            putExtra(RecognizerIntent.EXTRA_ENABLE_BIASING_DEVICE_CONTEXT, true)
+-            putStringArrayListExtra(RecognizerIntent.EXTRA_BIASING_STRINGS, ArrayList(buildBiasingStrings()))
+-            // Keep segmented dictation responsive. v1.5 used a 15s minimum session,
+-            // which could delay finalization noticeably on recognizers that honor it.
+-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 900)
+-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 700)
+-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1_500)
+-            putExtra(
+-                RecognizerIntent.EXTRA_SEGMENTED_SESSION,
+-                RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS
++    /**
++     * Voice-only integration. The keyboard UI/layout/manual typing code below this
++     * block is intentionally left unchanged.
++     */
++    private val offlineAsrListener = object : OfflinePersianAsrEngine.Listener {
++        override fun onModelLoading() {
++            if (wantListening) setVoiceUi(true, "در حال بارگذاری مدل آفلاین فارسی…")
++        }
++
++        override fun onReady() {
++            if (wantListening) beginOfflineCapture()
++        }
++
++        override fun onListening() {
++            if (!wantListening) {
++                offlineAsr.stop(flush = false)
++                return
++            }
++            actuallyListening = true
++            utterancePrefix = computeUtterancePrefix()
++            lastPartialText = ""
++            setVoiceUi(true, "دارم می‌شنوم… ادامه بده")
++        }
++
++        override fun onSpeechStarted() {
++            if (wantListening) showVoiceMessage("صدات رو گرفتم…")
++        }
++
++        override fun onSpeechEnded() {
++            if (wantListening) showVoiceMessage("در حال نهایی‌سازی جمله…")
++        }
++
++        override fun onRms(uiRmsDb: Float) {
++            val now = android.os.SystemClock.elapsedRealtime()
++            if (now - lastRmsUiAt < 40L) return
++            lastRmsUiAt = now
++            val pulse = ((uiRmsDb + 2f) / 12f).coerceIn(0f, 1f)
++            waveformView?.setRmsDb(uiRmsDb)
++            micButton?.apply {
++                alpha = 0.86f + pulse * 0.14f
++                val scale = 1f + pulse * 0.05f
++                scaleX = scale
++                scaleY = scale
++            }
++        }
++
++        override fun onPartial(text: String) {
++            val normalized = normalizeSpeech(text)
++            if (normalized.isBlank() || normalized == lastPartialText) return
++            lastPartialText = normalized
++            speechComposingActive = true
++            currentInputConnection?.setComposingText(utterancePrefix + normalized, 1)
++            showVoiceMessage(normalized)
++        }
++
++        override fun onFinal(text: String) {
++            val normalized = normalizeSpeech(text)
++            if (normalize
