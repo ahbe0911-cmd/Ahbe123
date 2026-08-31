@@ -1,0 +1,70 @@
+0L && !hasSpeechTextThisSession && !finalizeRequestedByWatchdog) {
+-                    val speechAge = now - voiceStart
+-                    val quietFor = if (lastVoiceActivityAt > 0L) now - lastVoiceActivityAt else Long.MAX_VALUE
+-                    // Normal case: the user has paused after speaking but the service
+-                    // produced no partial result. Ask it to finalize instead of hanging.
+-                    if ((speechAge > 1_700L && quietFor > 520L) || speechAge > 7_000L) {
+-                        finalizeRequestedByWatchdog = true
+-                        setVoiceUi(true, if (isPersian()) "در حال تبدیل صدا…" else "Converting speech…")
+-                        runCatching { speechRecognizer?.stopListening() }
+-                            .onFailure { hardRecoverRecognizer(if (isPersian()) "بازیابی تشخیص صوت…" else "Recovering speech…") }
+-                    }
+-                }
+-            }
+-            if (wantListening) mainHandler.postDelayed(this, 320L)
++        pendingStopFeedback = playFeedback && wasCapturing
++        if (::offlineAsr.isInitialized && wasCapturing) {
++            setVoiceUi(true, if (cancel) "در حال توقف میکروفون…" else "در حال نهایی‌سازی…")
++            // Audio capture is stopped first. The stop tone is played only from
++            // onStopped(), after AudioRecord is no longer feeding the recognizer.
++            offlineAsr.stop(flush = !cancel)
++        } else {
++            setVoiceUi(false, "میکروفون خاموش")
++            pendingStopFeedback = false
+         }
+     }
+ 
+-    private fun ensureSpeechWatchdog() {
+-        mainHandler.removeCallbacks(speechWatchdogRunnable)
+-        if (wantListening) mainHandler.postDelayed(speechWatchdogRunnable, 320L)
+-    }
+-
+-    private fun hardRecoverRecognizer(message: String) {
+-        mainHandler.removeCallbacks(speechWatchdogRunnable)
+-        runCatching { speechRecognizer?.cancel() }
+-        actuallyListening = false
+-        speechComposingActive = false
+-        setVoiceUi(true, message)
+-        prepareRecognizer()
+-        if (wantListening) scheduleRestart(180L)
+-    }
+-
+     private fun showKeyboard() {
+         if (!::container.isInitialized) return
+         waveformView?.setListening(false)
+diff -ruN voxfa_v1_11_base/scripts/fetch-vosk-fa-model.sh voxfa_v1_11_work/scripts/fetch-vosk-fa-model.sh
+--- voxfa_v1_11_base/scripts/fetch-vosk-fa-model.sh	1970-01-01 00:00:00.000000000 +0000
++++ voxfa_v1_11_work/scripts/fetch-vosk-fa-model.sh	2026-08-31 16:23:50.136470616 +0000
+@@ -0,0 +1,22 @@
++#!/usr/bin/env bash
++set -euo pipefail
++
++MODEL_NAME="vosk-model-small-fa-0.42"
++MODEL_ZIP="${MODEL_NAME}.zip"
++MODEL_SHA256="977cb5faa538f3a835ccfd35f5f6d8284b5c450b89c700b9bd4736b66536ad46"
++PRIMARY_URL="https://alphacephei.com/vosk/models/${MODEL_ZIP}"
++ASSET_DIR="${1:-app/src/main/assets/model-fa}"
++TMP_DIR="$(mktemp -d)"
++trap 'rm -rf "$TMP_DIR"' EXIT
++
++mkdir -p "$(dirname "$ASSET_DIR")"
++rm -rf "$ASSET_DIR"
++
++echo "Downloading verified Persian offline ASR model: $MODEL_NAME"
++curl -fL --retry 4 --retry-delay 3 --connect-timeout 20 \
++  "$PRIMARY_URL" -o "$TMP_DIR/$MODEL_ZIP"
++echo "$MODEL_SHA256  $TMP_DIR/$MODEL_ZIP" | sha256sum --check --strict
++unzip -q "$TMP_DIR/$MODEL_ZIP" -d "$TMP_DIR/unpacked"
++test -f "$TMP_DIR/unpacked/$MODEL_NAME/am/final.mdl"
++mv "$TMP_DIR/unpacked/$MODEL_NAME" "$ASSET_DIR"
++echo "Model ready at $ASSET_DIR"
