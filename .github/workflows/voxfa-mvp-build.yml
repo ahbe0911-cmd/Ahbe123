@@ -1,11 +1,11 @@
-name: VoxFa v1.9 Touch Fastpath Build
+name: VoxFa v1.10 Card Vault Build
 
 on:
   workflow_dispatch:
   push:
-    branches: ["voxfa-v1.9-touch-fastpath"]
+    branches: ["voxfa-v1.10-card-vault"]
     paths:
-      - "voxfa-v1.9.patch"
+      - "voxfa-v1.10-patch/**"
       - ".github/workflows/voxfa-mvp-build.yml"
 
 permissions:
@@ -21,40 +21,57 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Download verified VoxFa v1.8 base artifact
+      - name: Download verified VoxFa v1.9 base artifact
         uses: actions/download-artifact@v4
         with:
-          name: VoxFa-v1.8.0-GboardSymbols
+          name: VoxFa-v1.9.0-TouchFastpath
           path: base-artifact
           github-token: ${{ github.token }}
           repository: ahbe0911-cmd/Ahbe123
-          run-id: 33329112209
+          run-id: 33363359886
 
-      - name: Reconstruct and patch VoxFa v1.9 source
+      - name: Reconstruct exact VoxFa v1.10 patch
         shell: bash
         run: |
           set -euo pipefail
-          test -s base-artifact/VoxFa-v1.8.0-source.zip
-          test -s voxfa-v1.9.patch
+          cat voxfa-v1.10-patch/part00 \
+              voxfa-v1.10-patch/part01a \
+              voxfa-v1.10-patch/part01 \
+              voxfa-v1.10-patch/part03 \
+              voxfa-v1.10-patch/part04 > /tmp/voxfa-v1.10.patch.b64
+          echo "b43560397f5f10a32d72cf3a108da538881961b23c94ecbe4cad8227c38ae601  /tmp/voxfa-v1.10.patch.b64" | sha256sum --check --strict
+          base64 --decode /tmp/voxfa-v1.10.patch.b64 > /tmp/voxfa-v1.10.patch
+          echo "ac50fd17b29851f98494aac1ccab0caa84b304f76ba165e7a3b308e007ce5844  /tmp/voxfa-v1.10.patch" | sha256sum --check --strict
+
+      - name: Reconstruct and patch VoxFa v1.10 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s base-artifact/VoxFa-v1.9.0-source.zip
           rm -rf voxfa-project
           mkdir -p voxfa-project
-          unzip -q base-artifact/VoxFa-v1.8.0-source.zip -d voxfa-project
-          (cd voxfa-project && patch -p1 < ../voxfa-v1.9.patch)
+          unzip -q base-artifact/VoxFa-v1.9.0-source.zip -d voxfa-project
+          (cd voxfa-project && patch -p1 < /tmp/voxfa-v1.10.patch)
 
-      - name: Verify v1.9 touch fastpath
+      - name: Verify v1.10 card vault and Persian variants
         shell: bash
         run: |
           set -euo pipefail
           test -f voxfa-project/settings.gradle.kts
           test -f voxfa-project/app/src/main/AndroidManifest.xml
-          grep -q 'versionCode = 10' voxfa-project/app/build.gradle.kts
-          grep -q 'versionName = "1.9.0-touch-fastpath"' voxfa-project/app/build.gradle.kts
-          grep -q 'native touch/click pipeline' voxfa-project/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt
-          grep -q 'postDelayed(suggestionRefreshRunnable, 160L)' voxfa-project/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt
-          grep -q 'lastRmsUiAt' voxfa-project/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt
-          grep -q 'HandlerThread("VoxFa-Audio"' voxfa-project/app/src/main/java/ir/voxfa/keyboard/KeyboardAudioFeedback.kt
-          grep -q 'gboardSymbolsPage1' voxfa-project/app/src/main/java/ir/voxfa/keyboard/KeyboardLayouts.kt
-          grep -q 'speechWatchdogRunnable' voxfa-project/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt
+          test -f voxfa-project/app/src/main/java/ir/voxfa/keyboard/CardVault.kt
+          grep -Fq 'versionCode = 11' voxfa-project/app/build.gradle.kts
+          grep -Fq 'versionName = "1.10.0-card-vault-persian-variants"' voxfa-project/app/build.gradle.kts
+          grep -Fq 'AndroidKeyStore' voxfa-project/app/src/main/java/ir/voxfa/keyboard/CardVault.kt
+          grep -Fq 'AES/GCM/NoPadding' voxfa-project/app/src/main/java/ir/voxfa/keyboard/CardVault.kt
+          grep -Fq 'noBackupFilesDir' voxfa-project/app/src/main/java/ir/voxfa/keyboard/CardVault.kt
+          grep -Fq 'KeyboardIconButton.Icon.CARD' voxfa-project/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt
+          grep -Fq 'persianLongPressVariant' voxfa-project/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt
+          grep -Fq 'commitKey("\u200C")' voxfa-project/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt
+          grep -Fq ".replace('ي', 'ی')" voxfa-project/app/src/main/java/ir/voxfa/keyboard/SmartTextCorrector.kt
+          grep -Fq 'native touch/click pipeline' voxfa-project/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt
+          grep -Fq 'gboardSymbolsPage1' voxfa-project/app/src/main/java/ir/voxfa/keyboard/KeyboardLayouts.kt
+          grep -Fq 'speechWatchdogRunnable' voxfa-project/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt
 
       - name: Fetch Vazirmatn font and license
         run: bash voxfa-project/scripts/fetch-vazirmatn.sh
@@ -89,22 +106,22 @@ jobs:
           APK=voxfa-project/app/build/outputs/apk/debug/app-debug.apk
           test -s "$APK"
           mkdir -p release
-          cp "$APK" release/VoxFa-v1.9.0-TouchFastpath.apk
-          sha256sum release/VoxFa-v1.9.0-TouchFastpath.apk | tee release/SHA256.txt
+          cp "$APK" release/VoxFa-v1.10.0-CardVault.apk
+          sha256sum release/VoxFa-v1.10.0-CardVault.apk | tee release/SHA256.txt
           rm -rf voxfa-project/app/build voxfa-project/.gradle voxfa-project/.kotlin voxfa-project/app/src/main/res/font
-          (cd voxfa-project && zip -qr ../release/VoxFa-v1.9.0-source.zip .)
-          (cd voxfa-project && tar -cJf ../release/VoxFa-v1.9.0-source.tar.xz .)
-          test -s release/VoxFa-v1.9.0-source.zip
-          test -s release/VoxFa-v1.9.0-source.tar.xz
+          (cd voxfa-project && zip -qr ../release/VoxFa-v1.10.0-source.zip .)
+          (cd voxfa-project && tar -cJf ../release/VoxFa-v1.10.0-source.tar.xz .)
+          test -s release/VoxFa-v1.10.0-source.zip
+          test -s release/VoxFa-v1.10.0-source.tar.xz
 
       - name: Upload installable APK and source
         uses: actions/upload-artifact@v4
         with:
-          name: VoxFa-v1.9.0-TouchFastpath
+          name: VoxFa-v1.10.0-CardVault
           path: |
-            release/VoxFa-v1.9.0-TouchFastpath.apk
-            release/VoxFa-v1.9.0-source.zip
-            release/VoxFa-v1.9.0-source.tar.xz
+            release/VoxFa-v1.10.0-CardVault.apk
+            release/VoxFa-v1.10.0-source.zip
+            release/VoxFa-v1.10.0-source.tar.xz
             release/SHA256.txt
           if-no-files-found: error
           retention-days: 30
