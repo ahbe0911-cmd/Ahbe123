@@ -1,12 +1,11 @@
-name: VoxFa v1.8 Gboard Symbols Build
+name: VoxFa v1.9 Touch Fastpath Build
 
 on:
   workflow_dispatch:
   push:
-    branches: ["voxfa-v1.8-gboard-symbols"]
+    branches: ["voxfa-v1.9-touch-fastpath"]
     paths:
-      - "voxfa-v1.7.patch"
-      - "voxfa-v1.8.patch"
+      - "voxfa-v1.9.patch"
       - ".github/workflows/voxfa-mvp-build.yml"
 
 permissions:
@@ -22,45 +21,40 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Download verified VoxFa v1.6 base artifact
+      - name: Download verified VoxFa v1.8 base artifact
         uses: actions/download-artifact@v4
         with:
-          name: VoxFa-v1.6.0-RealtimeInput
+          name: VoxFa-v1.8.0-GboardSymbols
           path: base-artifact
           github-token: ${{ github.token }}
           repository: ahbe0911-cmd/Ahbe123
-          run-id: 33324167563
+          run-id: 33329112209
 
-      - name: Reconstruct VoxFa v1.8 source with preserved v1.7 logic
+      - name: Reconstruct and patch VoxFa v1.9 source
         shell: bash
         run: |
           set -euo pipefail
-          echo "45ef51ccf05a11a55ac2dd103e23ed9dd1f1df2b3cb174375e2ce3aa43617e8f  voxfa-v1.7.patch" | sha256sum --check --strict
-          echo "65ed55222dedb2f151ff0d8bee16755f1b7ce935f7d8ac0bee4540e8c4d472ae  voxfa-v1.8.patch" | sha256sum --check --strict
-          test -s base-artifact/VoxFa-v1.6.0-source.zip
+          test -s base-artifact/VoxFa-v1.8.0-source.zip
+          test -s voxfa-v1.9.patch
           rm -rf voxfa-project
           mkdir -p voxfa-project
-          unzip -q base-artifact/VoxFa-v1.6.0-source.zip -d voxfa-project
-          (cd voxfa-project && patch -p1 < ../voxfa-v1.7.patch)
-          (cd voxfa-project && patch -p1 < ../voxfa-v1.8.patch)
+          unzip -q base-artifact/VoxFa-v1.8.0-source.zip -d voxfa-project
+          (cd voxfa-project && patch -p1 < ../voxfa-v1.9.patch)
 
-      - name: Verify v1.8 source tree
+      - name: Verify v1.9 touch fastpath
         shell: bash
         run: |
           set -euo pipefail
           test -f voxfa-project/settings.gradle.kts
           test -f voxfa-project/app/src/main/AndroidManifest.xml
-          test -f voxfa-project/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt
-          test -f voxfa-project/app/src/main/java/ir/voxfa/keyboard/KeyboardLayouts.kt
-          grep -q 'versionCode = 9' voxfa-project/app/build.gradle.kts
-          grep -q 'versionName = "1.8.0-gboard-symbols"' voxfa-project/app/build.gradle.kts
+          grep -q 'versionCode = 10' voxfa-project/app/build.gradle.kts
+          grep -q 'versionName = "1.9.0-touch-fastpath"' voxfa-project/app/build.gradle.kts
+          grep -q 'native touch/click pipeline' voxfa-project/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt
+          grep -q 'postDelayed(suggestionRefreshRunnable, 160L)' voxfa-project/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt
+          grep -q 'lastRmsUiAt' voxfa-project/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt
+          grep -q 'HandlerThread("VoxFa-Audio"' voxfa-project/app/src/main/java/ir/voxfa/keyboard/KeyboardAudioFeedback.kt
           grep -q 'gboardSymbolsPage1' voxfa-project/app/src/main/java/ir/voxfa/keyboard/KeyboardLayouts.kt
-          grep -q 'gboardSymbolsPage2' voxfa-project/app/src/main/java/ir/voxfa/keyboard/KeyboardLayouts.kt
-          grep -q 'if (symbolMode) "2/2" else "1/2"' voxfa-project/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt
           grep -q 'speechWatchdogRunnable' voxfa-project/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt
-          grep -q 'StateListDrawable' voxfa-project/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt
-          grep -q 'suggestionRefreshRunnable' voxfa-project/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt
-          grep -q 'FORMATTING_OPTIMIZE_LATENCY' voxfa-project/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt
 
       - name: Fetch Vazirmatn font and license
         run: bash voxfa-project/scripts/fetch-vazirmatn.sh
@@ -95,22 +89,22 @@ jobs:
           APK=voxfa-project/app/build/outputs/apk/debug/app-debug.apk
           test -s "$APK"
           mkdir -p release
-          cp "$APK" release/VoxFa-v1.8.0-GboardSymbols.apk
-          sha256sum release/VoxFa-v1.8.0-GboardSymbols.apk | tee release/SHA256.txt
+          cp "$APK" release/VoxFa-v1.9.0-TouchFastpath.apk
+          sha256sum release/VoxFa-v1.9.0-TouchFastpath.apk | tee release/SHA256.txt
           rm -rf voxfa-project/app/build voxfa-project/.gradle voxfa-project/.kotlin voxfa-project/app/src/main/res/font
-          (cd voxfa-project && zip -qr ../release/VoxFa-v1.8.0-source.zip .)
-          (cd voxfa-project && tar -cJf ../release/VoxFa-v1.8.0-source.tar.xz .)
-          test -s release/VoxFa-v1.8.0-source.zip
-          test -s release/VoxFa-v1.8.0-source.tar.xz
+          (cd voxfa-project && zip -qr ../release/VoxFa-v1.9.0-source.zip .)
+          (cd voxfa-project && tar -cJf ../release/VoxFa-v1.9.0-source.tar.xz .)
+          test -s release/VoxFa-v1.9.0-source.zip
+          test -s release/VoxFa-v1.9.0-source.tar.xz
 
       - name: Upload installable APK and source
         uses: actions/upload-artifact@v4
         with:
-          name: VoxFa-v1.8.0-GboardSymbols
+          name: VoxFa-v1.9.0-TouchFastpath
           path: |
-            release/VoxFa-v1.8.0-GboardSymbols.apk
-            release/VoxFa-v1.8.0-source.zip
-            release/VoxFa-v1.8.0-source.tar.xz
+            release/VoxFa-v1.9.0-TouchFastpath.apk
+            release/VoxFa-v1.9.0-source.zip
+            release/VoxFa-v1.9.0-source.tar.xz
             release/SHA256.txt
           if-no-files-found: error
           retention-days: 30
