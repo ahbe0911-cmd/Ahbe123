@@ -1,0 +1,237 @@
+) record.stop() }
++        captureThread?.interrupt()
++        inferenceThread?.interrupt()
++    }
++
++    fun release() {
++        if (!released.compareAndSet(false, true)) return
++        stopFlushRequested = false
++        if (running.getAndSet(false)) {
++            val record = audioRecord
++            audioRecord = null
++            runCatching { if (record?.recordingState == AudioRecord.RECORDSTATE_RECORDING) record.stop() }
++            captureThread?.interrupt()
++            inferenceThread?.interrupt()
++        }
++        // Do not close the native model while inference is still inside Vosk.
++        runCatching { captureThread?.join(700L) }
++        runCatching { inferenceThread?.join(1_100L) }
++        modelExecutor.shutdownNow()
++        runCatching { model?.close() }
++        model = null
++        clearQueuedAudio()
++    }
++
++    private fun captureLoop(record: AudioRecord) {
++        Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO)
++        try {
++            record.startRecording()
++            post { listener.onListening() }
++            while (running.get()) {
++                val buffer = bufferPool.poll() ?: ShortArray(CHUNK_SAMPLES)
++                val count = record.read(buffer, 0, buffer.size, AudioRecord.READ_BLOCKING)
++                if (count <= 0) {
++                    recycle(buffer)
++                    if (count == AudioRecord.ERROR_DEAD_OBJECT || count == AudioRecord.ERROR_INVALID_OPERATION) {
++                        throw IllegalStateException("AudioRecord read failed: $count")
++                    }
++                    continue
++                }
++
++                val rmsDbFs = computeRmsDbFs(buffer, count)
++                val chunk = AudioChunk(buffer, count, SystemClock.elapsedRealtime(), rmsDbFs)
++                if (!queue.offer(chunk)) {
++                    queue.poll()?.let { recycle(it.samples) }
++                    droppedChunks++
++                    if (!queue.offer(chunk)) recycle(buffer)
++                }
++            }
++        } catch (t: Throwable) {
++            if (running.getAndSet(false)) post { listener.onError("ضبط صدا متوقف شد", t) }
++        } finally {
++            runCatching { if (record.recordingState == AudioRecord.RECORDSTATE_RECORDING) record.stop() }
++            runCatching { record.release() }
++        }
++    }
++
++    private fun inferenceLoop(loadedModel: Model) {
++        Process.setThreadPriority(Process.THREAD_PRIORITY_DISPLAY)
++        var recognizer: Recognizer? = null
++        var lastPartial = ""
++        var lastPartialEmitAt = 0L
++        var speechActive = false
++        var consecutiveVoice = 0
++        var consecutiveSilence = 0
++        var noiseFloorDb = -58f
++        var inferenceEmaMs = 0.0
++        var decodedAudioMs = 0L
++        var inferenceWallMs = 0L
++        var lastMetricAt = 0L
++        droppedChunks = 0L
++
++        try {
++            recognizer = Recognizer(loadedModel, SAMPLE_RATE.toFloat()).apply {
++                setWords(false)
++                setPartialWords(false)
++                setEndpointerMode(Recognizer.EndpointerMode.LONG)
++                // A short pause must not cut dictation, but ~1s of real silence
++                // should finalize the current utterance for responsive typing.
++                setEndpointerDelays(8.0f, 1.05f, 45.0f)
++            }
++
++            while (running.get() || queue.isNotEmpty()) {
++                trimBacklog()
++                val chunk = try {
++                    queue.poll(120, java.util.concurrent.TimeUnit.MILLISECONDS)
++                } catch (_: InterruptedException) {
++                    if (!running.get()) null else continue
++                } ?: continue
++
++                val now = SystemClock.elapsedRealtime()
++                val ageMs = now - chunk.capturedAtMs
++                val uiRms = dbFsToUiRms(chunk.rmsDbFs)
++                post { listener.onRms(uiRms) }
++
++                val threshold = max(MIN_VOICE_DBFS, noiseFloorDb + NOISE_MARGIN_DB)
++                val voiced = chunk.rmsDbFs >= threshold
++                if (voiced) {
++                    consecutiveVoice++
++                    consecutiveSilence = 0
++                    if (!speechActive && consecutiveVoice >= START_VOICE_CHUNKS) {
++                        speechActive = true
++                        post { listener.onSpeechStarted() }
++                    }
++                } else {
++                    consecutiveVoice = 0
++                    consecutiveSilence++
++                    if (!speechActive) {
++                        noiseFloorDb = noiseFloorDb * 0.97f + chunk.rmsDbFs.coerceAtMost(-35f) * 0.03f
++                    }
++                    if (speechActive && consecutiveSilence >= END_SILENCE_CHUNKS) {
++                        speechActive = false
++                        post { listener.onSpeechEnded() }
++                    }
++                }
++
++                val t0 = SystemClock.elapsedRealtimeNanos()
++                val endpoint = recognizer.acceptWaveForm(chunk.samples, chunk.length)
++                val inferenceMs = (SystemClock.elapsedRealtimeNanos() - t0) / 1_000_000.0
++                inferenceEmaMs = if (inferenceEmaMs == 0.0) inferenceMs else inferenceEmaMs * 0.88 + inferenceMs * 0.12
++                decodedAudioMs += CHUNK_MS
++                inferenceWallMs += inferenceMs.toLong()
++                recycle(chunk.samples)
++
++                if (endpoint) {
++                    post { listener.onProcessing() }
++                    val finalText = extractJsonText(recognizer.result, "text")
++                    if (finalText.isNotBlank()) post { listener.onFinal(finalText) }
++                    lastPartial = ""
++                } else {
++                    val partial = extractJsonText(recognizer.partialResult, "partial")
++                    val emitNow = SystemClock.elapsedRealtime()
++                    if (partial.isNotBlank() && partial != lastPartial && emitNow - lastPartialEmitAt >= PARTIAL_MIN_INTERVAL_MS) {
++                        lastPartial = partial
++                        lastPartialEmitAt = emitNow
++                        post { listener.onPartial(partial) }
++                    }
++                }
++
++                if (now - lastMetricAt >= 1_000L) {
++                    lastMetricAt = now
++                    val rtf = if (decodedAudioMs > 0) inferenceWallMs.toDouble() / decodedAudioMs.toDouble() else 0.0
++                    val metrics = Metrics(
++                        queueMs = max(0L, ageMs),
++                        inferenceMs = inferenceEmaMs,
++                        droppedChunks = droppedChunks,
++                        realTimeFactor = rtf
++                    )
++                    post { listener.onMetrics(metrics) }
++                }
++            }
++
++            if (stopFlushRequested) {
++                val tail = extractJsonText(recognizer.finalResult, "text")
++                if (tail.isNotBlank()) post { listener.onFinal(tail) }
++            }
++        } catch (t: Throwable) {
++            if (running.getAndSet(false)) post { listener.onError("موتور آفلاین تشخیص گفتار متوقف شد", t) }
++        } finally {
++            runCatching { recognizer?.close() }
++            clearQueuedAudio()
++            captureThread = null
++            inferenceThread = null
++            post { listener.onStopped() }
++        }
++    }
++
++    /** Drop old PCM only when the decoder is actually behind, never let backlog grow unbounded. */
++    private fun trimBacklog() {
++        while (queue.size > 2) {
++            val head = queue.peek() ?: return
++            val age = SystemClock.elapsedRealtime() - head.capturedAtMs
++            if (age <= MAX_QUEUE_LATENCY_MS) return
++            queue.poll()?.let {
++                recycle(it.samples)
++                droppedChunks++
++            }
++        }
++    }
++
++    private fun createAudioRecord(bufferBytes: Int): AudioRecord? {
++        fun build(source: Int): AudioRecord? = try {
++            AudioRecord(
++                source,
++                SAMPLE_RATE,
++                AudioFormat.CHANNEL_IN_MONO,
++                AudioFormat.ENCODING_PCM_16BIT,
++                bufferBytes
++            )
++        } catch (_: Throwable) {
++            null
++        }
++
++        val speech = build(MediaRecorder.AudioSource.VOICE_RECOGNITION)
++        if (speech?.state == AudioRecord.STATE_INITIALIZED) return speech
++        runCatching { speech?.release() }
++        return build(MediaRecorder.AudioSource.MIC)
++    }
++
++    private fun ensureModelInstalled(): File {
++        val root = File(appContext.noBackupFilesDir, MODEL_INSTALL_DIR)
++        val marker = File(root, ".voxfa-model-version")
++        if (marker.isFile && marker.readText().trim() == MODEL_VERSION && File(root, "am/final.mdl").isFile) {
++            return root
++        }
++
++        root.deleteRecursively()
++        root.mkdirs()
++        copyAssetTree(MODEL_ASSET_DIR, root)
++        check(File(root, "am/final.mdl").isFile) { "Vosk acoustic model missing after asset copy" }
++        marker.writeText(MODEL_VERSION)
++        return root
++    }
++
++    private fun copyAssetTree(assetPath: String, destination: File) {
++        val children = appContext.assets.list(assetPath).orEmpty()
++        if (children.isEmpty()) {
++            destination.parentFile?.mkdirs()
++            appContext.assets.open(assetPath).use { input ->
++                FileOutputStream(destination).use { output -> input.copyTo(output, 128 * 1024) }
++            }
++            return
++        }
++        destination.mkdirs()
++        for (child in children) {
++            copyAssetTree("$assetPath/$child", File(destination, child))
++        }
++    }
++
++    private fun clearQueuedAudio() {
++        while (true) {
++            val chunk = queue.poll() ?: break
++            recycle(chunk.samples)
++        }
++    }
++
++    private fun recycle(buffer: ShortArray) {
++        if (buffer.size == CHUNK_SAMPLES) bufferPool.o
