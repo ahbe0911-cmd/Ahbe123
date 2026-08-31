@@ -66,4 +66,4 @@ modelDir.absolutePath)
 +        stopFlushRequested = flush
 +        val record = audioRecord
 +        audioRecord = null
-+        runCatching { if (record?.recordingState == AudioRecord.RECORDSTATE_RECORDING 
++        runCatching { if (record?.recordingState == AudioRecord.RECORDSTATE_RECORDING
