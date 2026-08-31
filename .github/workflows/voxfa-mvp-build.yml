@@ -1,11 +1,11 @@
-name: VoxFa v1.10 Card Vault Build
+name: VoxFa v1.11 Offline Persian ASR Build
 
 on:
   workflow_dispatch:
   push:
-    branches: ["voxfa-v1.10-card-vault"]
+    branches: ["voxfa-v1.11-offline-persian-asr"]
     paths:
-      - "voxfa-v1.10-patch/**"
+      - "voxfa-v1.11-patch/**"
       - ".github/workflows/voxfa-mvp-build.yml"
 
 permissions:
@@ -15,63 +15,93 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Download verified VoxFa v1.9 base artifact
+      - name: Download verified VoxFa v1.10 base artifact
         uses: actions/download-artifact@v4
         with:
-          name: VoxFa-v1.9.0-TouchFastpath
+          name: VoxFa-v1.10.0-CardVault
           path: base-artifact
           github-token: ${{ github.token }}
           repository: ahbe0911-cmd/Ahbe123
-          run-id: 33363359886
+          run-id: 33398204149
 
-      - name: Reconstruct exact VoxFa v1.10 patch
+      - name: Reconstruct exact VoxFa v1.11 voice-only patch
         shell: bash
         run: |
           set -euo pipefail
-          cat voxfa-v1.10-patch/part00 \
-              voxfa-v1.10-patch/part01a \
-              voxfa-v1.10-patch/part01 \
-              voxfa-v1.10-patch/part03 \
-              voxfa-v1.10-patch/part04 > /tmp/voxfa-v1.10.patch.b64
-          echo "b43560397f5f10a32d72cf3a108da538881961b23c94ecbe4cad8227c38ae601  /tmp/voxfa-v1.10.patch.b64" | sha256sum --check --strict
-          base64 --decode /tmp/voxfa-v1.10.patch.b64 > /tmp/voxfa-v1.10.patch
-          echo "ac50fd17b29851f98494aac1ccab0caa84b304f76ba165e7a3b308e007ce5844  /tmp/voxfa-v1.10.patch" | sha256sum --check --strict
+          cat > /tmp/v1.11-parts.sha256 <<'EOF'
+          598af944d759650a85a858578a2b01a774f015e4a8cb488653f7b3d6d1b317f0  voxfa-v1.11-patch/part00
+          5295c93b1f0c901baa7ae188ebc452e02c81f23bd5bf3df42927f5512a16f41e  voxfa-v1.11-patch/part01
+          d3bb20b5b90fa694c0178e4ff44046f41069a88f09d19c92f5e8947858d9adb7  voxfa-v1.11-patch/part02
+          c2a1f177376345d1d70605c7879d649ce79a4c33652f390ea363f07b6c462214  voxfa-v1.11-patch/part03
+          afc91b2d1bdddeb5c98a2d1a2a96cf53977504c94f50971c47685d5d38f7be2b  voxfa-v1.11-patch/part04a
+          69a884461c3469db3e43dabbf51e5e01e8c2e6183284574711ffff9f9747981d  voxfa-v1.11-patch/part04b
+          a749c83685c08abd64454444bc3463e3e59fd121e37229fa70befdeeaa437091  voxfa-v1.11-patch/part05
+          EOF
+          sha256sum --check --strict /tmp/v1.11-parts.sha256
+          cat voxfa-v1.11-patch/part00 \
+              voxfa-v1.11-patch/part01 \
+              voxfa-v1.11-patch/part02 \
+              voxfa-v1.11-patch/part03 \
+              voxfa-v1.11-patch/part04a \
+              voxfa-v1.11-patch/part04b \
+              voxfa-v1.11-patch/part05 > /tmp/voxfa-v1.11.patch
+          echo "2afcb1b6414584f2e8bf6cecfc36ad0d6580e482ae5e43bdb45759fd11f061cc  /tmp/voxfa-v1.11.patch" | sha256sum --check --strict
 
-      - name: Reconstruct and patch VoxFa v1.10 source
+      - name: Reconstruct and patch VoxFa v1.11 source
         shell: bash
         run: |
           set -euo pipefail
-          test -s base-artifact/VoxFa-v1.9.0-source.zip
+          test -s base-artifact/VoxFa-v1.10.0-source.zip
           rm -rf voxfa-project
           mkdir -p voxfa-project
-          unzip -q base-artifact/VoxFa-v1.9.0-source.zip -d voxfa-project
-          (cd voxfa-project && patch -p1 < /tmp/voxfa-v1.10.patch)
+          unzip -q base-artifact/VoxFa-v1.10.0-source.zip -d voxfa-project
+          awk '/^    private fun showKeyboard\(\)/,0' voxfa-project/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt | sha256sum | grep -Fq '6fd670b77eb56065fb782130ba9b85dae3da18fb362387afb7554bd084c23e92'
+          (cd voxfa-project && patch -p1 < /tmp/voxfa-v1.11.patch)
 
-      - name: Verify v1.10 card vault and Persian variants
+      - name: Verify keyboard is byte-for-byte unchanged
         shell: bash
         run: |
           set -euo pipefail
-          test -f voxfa-project/settings.gradle.kts
-          test -f voxfa-project/app/src/main/AndroidManifest.xml
-          test -f voxfa-project/app/src/main/java/ir/voxfa/keyboard/CardVault.kt
-          grep -Fq 'versionCode = 11' voxfa-project/app/build.gradle.kts
-          grep -Fq 'versionName = "1.10.0-card-vault-persian-variants"' voxfa-project/app/build.gradle.kts
-          grep -Fq 'AndroidKeyStore' voxfa-project/app/src/main/java/ir/voxfa/keyboard/CardVault.kt
-          grep -Fq 'AES/GCM/NoPadding' voxfa-project/app/src/main/java/ir/voxfa/keyboard/CardVault.kt
-          grep -Fq 'noBackupFilesDir' voxfa-project/app/src/main/java/ir/voxfa/keyboard/CardVault.kt
-          grep -Fq 'KeyboardIconButton.Icon.CARD' voxfa-project/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt
-          grep -Fq 'persianLongPressVariant' voxfa-project/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt
-          grep -Fq 'commitKey("\u200C")' voxfa-project/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt
-          grep -Fq ".replace('ي', 'ی')" voxfa-project/app/src/main/java/ir/voxfa/keyboard/SmartTextCorrector.kt
-          grep -Fq 'native touch/click pipeline' voxfa-project/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt
-          grep -Fq 'gboardSymbolsPage1' voxfa-project/app/src/main/java/ir/voxfa/keyboard/KeyboardLayouts.kt
-          grep -Fq 'speechWatchdogRunnable' voxfa-project/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt
+          cat > /tmp/keyboard.sha256 <<'EOF'
+          b428bfe69fa7c6a6c42deaa5b0a24bf4681a6a1df6c57a9999843eee95ad9026  voxfa-project/app/src/main/java/ir/voxfa/keyboard/KeyboardLayouts.kt
+          77f8fa764ef626224c2e27b1336c3dfd8ca55876f838895a5bff26f5a9b3470d  voxfa-project/app/src/main/java/ir/voxfa/keyboard/KeyboardIconButton.kt
+          d1b6edb5081a69fff184bf697a9ce893dfe020f294c8b2e607b4a820085fe457  voxfa-project/app/src/main/java/ir/voxfa/keyboard/KeyboardAudioFeedback.kt
+          5deec322e142d7804d2a9655125f525fb031219d4ad6db28f49df3e1d53f03d9  voxfa-project/app/src/main/java/ir/voxfa/keyboard/SmartTextCorrector.kt
+          007cc1478adaff0c74802eff1e26d5b1efb4eb3fc1e8794f1b3df120cba00fe4  voxfa-project/app/src/main/java/ir/voxfa/keyboard/CardVault.kt
+          9afd3c92a8a44a7a968d692cd125c3ba983aa8ec907dcad85b9cbc8b507ed23e  voxfa-project/app/src/main/java/ir/voxfa/keyboard/MainActivity.kt
+          EOF
+          sha256sum --check --strict /tmp/keyboard.sha256
+          awk '/^    private fun showKeyboard\(\)/,0' voxfa-project/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt | sha256sum | grep -Fq '6fd670b77eb56065fb782130ba9b85dae3da18fb362387afb7554bd084c23e92'
+
+      - name: Verify v1.11 offline ASR source
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'versionCode = 12' voxfa-project/app/build.gradle.kts
+          grep -Fq 'versionName = "1.11.0-offline-persian-asr"' voxfa-project/app/build.gradle.kts
+          grep -Fq 'com.alphacephei:vosk-android:0.3.75@aar' voxfa-project/app/build.gradle.kts
+          test -f voxfa-project/app/src/main/java/ir/voxfa/keyboard/OfflinePersianAsrEngine.kt
+          test -f voxfa-project/app/src/main/java/ir/voxfa/keyboard/PersianSpeechPostProcessor.kt
+          grep -Fq 'ArrayBlockingQueue' voxfa-project/app/src/main/java/ir/voxfa/keyboard/OfflinePersianAsrEngine.kt
+          grep -Fq 'AudioRecord' voxfa-project/app/src/main/java/ir/voxfa/keyboard/OfflinePersianAsrEngine.kt
+          grep -Fq 'setEndpointerDelays' voxfa-project/app/src/main/java/ir/voxfa/keyboard/OfflinePersianAsrEngine.kt
+          grep -Fq 'PersianSpeechPostProcessor.process' voxfa-project/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt
+          ! grep -Fq 'android.permission.INTERNET' voxfa-project/app/src/main/AndroidManifest.xml
+          ! grep -Eq 'SpeechRecognizer|RecognizerIntent|RecognitionListener|android\.speech' voxfa-project/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt
+
+      - name: Fetch verified offline Persian model
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd voxfa-project && bash scripts/fetch-vosk-fa-model.sh)
+          test -f voxfa-project/app/src/main/assets/model-fa/am/final.mdl
+          du -sh voxfa-project/app/src/main/assets/model-fa
 
       - name: Fetch Vazirmatn font and license
         run: bash voxfa-project/scripts/fetch-vazirmatn.sh
@@ -99,29 +129,34 @@ jobs:
       - name: Build debug APK
         run: gradle -p voxfa-project --no-daemon clean assembleDebug
 
-      - name: Verify and stage outputs
+      - name: Verify offline APK and stage outputs
         shell: bash
         run: |
           set -euo pipefail
           APK=voxfa-project/app/build/outputs/apk/debug/app-debug.apk
           test -s "$APK"
+          unzip -l "$APK" | grep -Fq 'assets/model-fa/am/final.mdl'
+          if command -v apkanalyzer >/dev/null 2>&1; then
+            ! apkanalyzer manifest permissions "$APK" | grep -Fq 'android.permission.INTERNET'
+          fi
           mkdir -p release
-          cp "$APK" release/VoxFa-v1.10.0-CardVault.apk
-          sha256sum release/VoxFa-v1.10.0-CardVault.apk | tee release/SHA256.txt
-          rm -rf voxfa-project/app/build voxfa-project/.gradle voxfa-project/.kotlin voxfa-project/app/src/main/res/font
-          (cd voxfa-project && zip -qr ../release/VoxFa-v1.10.0-source.zip .)
-          (cd voxfa-project && tar -cJf ../release/VoxFa-v1.10.0-source.tar.xz .)
-          test -s release/VoxFa-v1.10.0-source.zip
-          test -s release/VoxFa-v1.10.0-source.tar.xz
+          cp "$APK" release/VoxFa-v1.11.0-OfflinePersianASR.apk
+          sha256sum release/VoxFa-v1.11.0-OfflinePersianASR.apk | tee release/SHA256.txt
+          printf '\nModel: vosk-model-small-fa-0.42\nModel SHA256: 977cb5faa538f3a835ccfd35f5f6d8284b5c450b89c700b9bd4736b66536ad46\n' >> release/SHA256.txt
+          rm -rf voxfa-project/app/build voxfa-project/.gradle voxfa-project/.kotlin voxfa-project/app/src/main/res/font voxfa-project/app/src/main/assets/model-fa
+          (cd voxfa-project && zip -qr ../release/VoxFa-v1.11.0-source.zip .)
+          (cd voxfa-project && tar -cJf ../release/VoxFa-v1.11.0-source.tar.xz .)
+          test -s release/VoxFa-v1.11.0-source.zip
+          test -s release/VoxFa-v1.11.0-source.tar.xz
 
       - name: Upload installable APK and source
         uses: actions/upload-artifact@v4
         with:
-          name: VoxFa-v1.10.0-CardVault
+          name: VoxFa-v1.11.0-OfflinePersianASR
           path: |
-            release/VoxFa-v1.10.0-CardVault.apk
-            release/VoxFa-v1.10.0-source.zip
-            release/VoxFa-v1.10.0-source.tar.xz
+            release/VoxFa-v1.11.0-OfflinePersianASR.apk
+            release/VoxFa-v1.11.0-source.zip
+            release/VoxFa-v1.11.0-source.tar.xz
             release/SHA256.txt
           if-no-files-found: error
           retention-days: 30
