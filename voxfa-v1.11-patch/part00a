@@ -1,0 +1,103 @@
+diff -ruN voxfa_v1_11_base/OFFLINE_ASR_FA.md voxfa_v1_11_work/OFFLINE_ASR_FA.md
+--- voxfa_v1_11_base/OFFLINE_ASR_FA.md	1970-01-01 00:00:00.000000000 +0000
++++ voxfa_v1_11_work/OFFLINE_ASR_FA.md	2026-08-31 16:23:50.136590317 +0000
+@@ -0,0 +1,21 @@
++# VoxFa 1.11 — موتور آفلاین گفتار فارسی
++
++این نسخه فقط لایه Voice / Microphone / ASR / VAD را تغییر می‌دهد. بخش کیبورد، چیدمان، تایپ دستی و صدای کلیدها عمداً بدون تغییر باقی مانده‌اند.
++
++## موتور
++- Vosk Android 0.3.75
++- مدل: `vosk-model-small-fa-0.42`
++- SHA-256 مدل: `977cb5faa538f3a835ccfd35f5f6d8284b5c450b89c700b9bd4736b66536ad46`
++- نرخ نمونه‌برداری: 16 kHz mono PCM16
++- بدون مجوز INTERNET در APK
++
++## Pipeline
++`AudioRecord -> 100ms chunks -> bounded queue -> energy VAD -> Vosk streaming -> partial/final -> Persian post-processor`
++
++Audio capture و inference روی Threadهای جدا هستند. صف PCM حداکثر حدود 700ms ظرفیت دارد و اگر decoder عقب بیفتد، chunkهای قدیمی حذف می‌شوند تا latency نامحدود رشد نکند. هیچ فایل صوتی کامل جلسه در RAM نگه‌داری نمی‌شود.
++
++## مدل در build
++مدل داخل Git ذخیره نمی‌شود. `scripts/fetch-vosk-fa-model.sh` مدل رسمی را دانلود می‌کند، SHA-256 را بررسی می‌کند و فقط در زمان build داخل assets قرار می‌دهد. APK نهایی مدل را همراه دارد و پس از نصب برای ASR به اینترنت نیاز ندارد.
++
++## محدودیت تست
++CI صحت build، وجود مدل، نبود INTERNET و invariant فایل‌های کیبورد را بررسی می‌کند. آزمون 60 دقیقه‌ای روی میکروفون سخت‌افزار واقعی باید روی دستگاه Android انجام شود؛ GitHub runner جایگزین تست حرارتی/میکروفون واقعی نیست.
+diff -ruN voxfa_v1_11_base/app/build.gradle.kts voxfa_v1_11_work/app/build.gradle.kts
+--- voxfa_v1_11_base/app/build.gradle.kts	2026-08-31 13:40:01.000000000 +0000
++++ voxfa_v1_11_work/app/build.gradle.kts	2026-08-31 16:23:50.136094708 +0000
+@@ -11,8 +11,8 @@
+         applicationId = "ir.voxfa.keyboard"
+         minSdk = 26
+         targetSdk = 35
+-        versionCode = 11
+-        versionName = "1.10.0-card-vault-persian-variants"
++        versionCode = 12
++        versionName = "1.11.0-offline-persian-asr"
+     }
+ 
+     buildTypes {
+@@ -34,3 +34,9 @@
+         jvmTarget = "17"
+     }
+ }
++
++
++dependencies {
++    implementation("com.alphacephei:vosk-android:0.3.75@aar")
++    implementation("net.java.dev.jna:jna:5.18.1@aar")
++}
+diff -ruN voxfa_v1_11_base/app/src/main/AndroidManifest.xml voxfa_v1_11_work/app/src/main/AndroidManifest.xml
+--- voxfa_v1_11_base/app/src/main/AndroidManifest.xml	2026-08-30 11:32:28.000000000 +0000
++++ voxfa_v1_11_work/app/src/main/AndroidManifest.xml	2026-08-31 16:23:50.136221890 +0000
+@@ -2,13 +2,6 @@
+ <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+ 
+     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+-    <uses-permission android:name="android.permission.INTERNET" />
+-
+-    <queries>
+-        <intent>
+-            <action android:name="android.speech.RecognitionService" />
+-        </intent>
+-    </queries>
+ 
+     <application
+         android:allowBackup="true"
+diff -ruN voxfa_v1_11_base/app/src/main/java/ir/voxfa/keyboard/OfflinePersianAsrEngine.kt voxfa_v1_11_work/app/src/main/java/ir/voxfa/keyboard/OfflinePersianAsrEngine.kt
+--- voxfa_v1_11_base/app/src/main/java/ir/voxfa/keyboard/OfflinePersianAsrEngine.kt	1970-01-01 00:00:00.000000000 +0000
++++ voxfa_v1_11_work/app/src/main/java/ir/voxfa/keyboard/OfflinePersianAsrEngine.kt	2026-08-31 16:22:05.244218065 +0000
+@@ -0,0 +1,460 @@
++package ir.voxfa.keyboard
++
++import android.Manifest
++import android.content.Context
++import android.content.pm.PackageManager
++import android.media.AudioFormat
++import android.media.AudioRecord
++import android.media.MediaRecorder
++import android.os.Handler
++import android.os.Looper
++import android.os.Process
++import android.os.SystemClock
++import org.json.JSONObject
++import org.vosk.Model
++import org.vosk.Recognizer
++import java.io.File
++import java.io.FileOutputStream
++import java.util.concurrent.ArrayBlockingQueue
++import java.util.concurrent.Executors
++import java.util.concurrent.atomic.AtomicBoolean
++import kotlin.math.log10
++import kotlin.math.max
++import kotlin.math.sqrt
++
++/**
++ * Fully offline Persian speech pipeline.
++ *
++ * Microphone -> bounded PCM queue -> energy VAD -> Vosk streaming recognizer
++ * -> partial/final callbacks.
++ *
++ * Audio capture never waits for inference. The queue is fixed-size and reuses
++ * buffers; when inference falls behind, stale audio is discarded deliberately
++ * so latency remains bounded instead 
