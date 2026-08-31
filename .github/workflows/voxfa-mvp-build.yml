@@ -36,7 +36,8 @@ jobs:
           set -euo pipefail
           cat > /tmp/v1.11-parts.sha256 <<'EOF'
           9e4ebee74bd008f023e45687cd0c8a927dc4e839750bb68f351be22626eabdbf  voxfa-v1.11-patch/part00a
-          ec9c4515c217b5bfe1be45a5be112d92f511dc2899459ec236240ab1ffe1ec44  voxfa-v1.11-patch/part00b
+          b4eb80e06cc2eaf2aec1a5302936d87433604ee96cd8fd0057662cf346dd7419  voxfa-v1.11-patch/part00b0
+          2cb1b856da8a3e4a7931e26c0dbf826ad489ca8cf7f1bfe09923fd37f0cc577d  voxfa-v1.11-patch/part00b1
           5295c93b1f0c901baa7ae188ebc452e02c81f23bd5bf3df42927f5512a16f41e  voxfa-v1.11-patch/part01
           d3bb20b5b90fa694c0178e4ff44046f41069a88f09d19c92f5e8947858d9adb7  voxfa-v1.11-patch/part02
           c2a1f177376345d1d70605c7879d649ce79a4c33652f390ea363f07b6c462214  voxfa-v1.11-patch/part03
@@ -46,7 +47,8 @@ jobs:
           EOF
           sha256sum --check --strict /tmp/v1.11-parts.sha256
           cat voxfa-v1.11-patch/part00a \
-              voxfa-v1.11-patch/part00b \
+              voxfa-v1.11-patch/part00b0 \
+              voxfa-v1.11-patch/part00b1 \
               voxfa-v1.11-patch/part01 \
               voxfa-v1.11-patch/part02 \
               voxfa-v1.11-patch/part03 \
