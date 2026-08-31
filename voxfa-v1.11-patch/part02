@@ -1,0 +1,254 @@
+ffer(buffer)
++    }
++
++    private fun extractJsonText(json: String, key: String): String = try {
++        JSONObject(json).optString(key).trim()
++    } catch (_: Throwable) {
++        ""
++    }
++
++    private fun computeRmsDbFs(samples: ShortArray, length: Int): Float {
++        if (length <= 0) return -90f
++        var sum = 0.0
++        for (i in 0 until length) {
++            val v = samples[i].toDouble() / 32768.0
++            sum += v * v
++        }
++        val rms = sqrt(sum / length).coerceAtLeast(1e-7)
++        return (20.0 * log10(rms)).toFloat().coerceIn(-90f, 0f)
++    }
++
++    /** Maps physical dBFS to the legacy waveform's expected roughly -2..10 range. */
++    private fun dbFsToUiRms(dbFs: Float): Float {
++        val normalized = ((dbFs + 58f) / 48f).coerceIn(0f, 1f)
++        return -2f + normalized * 12f
++    }
++
++    private fun post(block: () -> Unit) {
++        if (released.get()) return
++        mainHandler.post {
++            if (!released.get()) block()
++        }
++    }
++
++    companion object {
++        const val SAMPLE_RATE = 16_000
++        private const val CHUNK_MS = 100L
++        private const val CHUNK_SAMPLES = (SAMPLE_RATE / 10)
++        private const val QUEUE_CAPACITY = 7
++        private const val POOL_SIZE = QUEUE_CAPACITY + 4
++        private const val MAX_QUEUE_LATENCY_MS = 550L
++        private const val PARTIAL_MIN_INTERVAL_MS = 110L
++        private const val START_VOICE_CHUNKS = 2
++        private const val END_SILENCE_CHUNKS = 9
++        private const val MIN_VOICE_DBFS = -45f
++        private const val NOISE_MARGIN_DB = 9f
++        private const val MODEL_ASSET_DIR = "model-fa"
++        private const val MODEL_INSTALL_DIR = "vosk-model-small-fa-0.42"
++        private const val MODEL_VERSION = "small-fa-0.42+voxfa1"
++
++    }
++}
+diff -ruN voxfa_v1_11_base/app/src/main/java/ir/voxfa/keyboard/PersianSpeechPostProcessor.kt voxfa_v1_11_work/app/src/main/java/ir/voxfa/keyboard/PersianSpeechPostProcessor.kt
+--- voxfa_v1_11_base/app/src/main/java/ir/voxfa/keyboard/PersianSpeechPostProcessor.kt	1970-01-01 00:00:00.000000000 +0000
++++ voxfa_v1_11_work/app/src/main/java/ir/voxfa/keyboard/PersianSpeechPostProcessor.kt	2026-08-31 16:22:05.244520232 +0000
+@@ -0,0 +1,109 @@
++package ir.voxfa.keyboard
++
++/**
++ * Conservative post-processing for offline Persian ASR.
++ *
++ * This layer only normalizes orthography/spacing and a few unambiguous spoken
++ * digit sequences. It deliberately avoids semantic rewrites so the user's
++ * meaning is not changed by post-processing.
++ */
++object PersianSpeechPostProcessor {
++    private const val ZWNJ = "\u200C"
++
++    private val singleDigits = mapOf(
++        "صفر" to "۰",
++        "یک" to "۱",
++        "دو" to "۲",
++        "سه" to "۳",
++        "چهار" to "۴",
++        "پنج" to "۵",
++        "شش" to "۶",
++        "هفت" to "۷",
++        "هشت" to "۸",
++        "نه" to "۹"
++    )
++
++    fun process(raw: String): String {
++        if (raw.isBlank()) return ""
++
++        var text = VoiceTextNormalizer.normalize(raw)
++            .replace('\u064A', '\u06CC') // ي -> ی
++            .replace('\u0649', '\u06CC') // ى -> ی
++            .replace('\u0643', '\u06A9') // ك -> ک
++            .replace("ۀ", "هٔ")
++            .replace(Regex("[ \\t]+"), " ")
++            .trim()
++
++        text = normalizeClearHalfSpaces(text)
++        text = normalizeSpokenDigitRuns(text)
++        text = normalizePunctuationSpacing(text)
++        return text.trim()
++    }
++
++    private fun normalizeClearHalfSpaces(input: String): String {
++        var value = input
++
++        // Productive Persian verb prefixes. Require a following Persian word so
++        // isolated words such as "می" are not altered.
++        value = value.replace(
++            Regex("(?<![\\p{L}$ZWNJ])(ن?می)\\s+(?=[\\p{L}])"),
++            "$1$ZWNJ"
++        )
++
++        // Very common plural suffixes. Keep this conservative and only join when
++        // the left side already looks like a word.
++        value = value.replace(
++            Regex("([\\p{L}$ZWNJ]{2,})\\s+(ها|های)(?=\\s|$|[،؟!:.])"),
++            "$1$ZWNJ$2"
++        )
++
++        // Common colloquial forms produced by ASR.
++        value = value
++            .replace(Regex("\\bمی\\s*خوام\\b"), "می${ZWNJ}خوام")
++            .replace(Regex("\\bنمی\\s*خوام\\b"), "نمی${ZWNJ}خوام")
++            .replace(Regex("\\bمی\\s*تونم\\b"), "می${ZWNJ}تونم")
++            .replace(Regex("\\bنمی\\s*تونم\\b"), "نمی${ZWNJ}تونم")
++
++        return value
++    }
++
++    /**
++     * Converts only runs of >= 3 individually spoken digits, e.g.
++     * "صفر نه یک دو" -> "۰۹۱۲". A single word such as "سه" stays textual.
++     * This helps phone/card/OTP dictation without rewriting general numbers.
++     */
++    private fun normalizeSpokenDigitRuns(input: String): String {
++        val words = input.split(Regex("(\\s+)")).toMutableList()
++        if (words.size < 2) return input
++
++        val out = ArrayList<String>(words.size)
++        var i = 0
++        while (i < words.size) {
++            val clean = words[i].trim()
++            if (singleDigits.containsKey(clean)) {
++                var j = i
++                val digits = StringBuilder()
++                while (j < words.size) {
++                    val token = words[j].trim()
++                    val digit = singleDigits[token] ?: break
++                    digits.append(digit)
++                    j++
++                }
++                if (j - i >= 3) {
++                    out += digits.toString()
++                    i = j
++                    continue
++                }
++            }
++            out += words[i]
++            i++
++        }
++        return out.joinToString(" ")
++    }
++
++    private fun normalizePunctuationSpacing(input: String): String = input
++        .replace(Regex("\\s+([،؛؟!:.])"), "$1")
++        .replace(Regex("([،؛؟!:.])(?=[^\\s\\n،؛؟!:.])"), "$1 ")
++        .replace(Regex(" *\\n *"), "\\n")
++        .replace(Regex(" {2,}"), " ")
++}
+diff -ruN voxfa_v1_11_base/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt voxfa_v1_11_work/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt
+--- voxfa_v1_11_base/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt	2026-08-31 13:40:01.000000000 +0000
++++ voxfa_v1_11_work/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt	2026-08-31 16:23:06.437224686 +0000
+@@ -12,15 +12,10 @@
+ import android.graphics.drawable.GradientDrawable
+ import android.graphics.drawable.StateListDrawable
+ import android.inputmethodservice.InputMethodService
+-import android.os.Build
+-import android.os.Bundle
+ import android.os.Handler
+ import android.os.Looper
+-import android.os.SystemClock
+-import android.speech.RecognitionListener
+-import android.speech.RecognizerIntent
+-import android.speech.SpeechRecognizer
+ import android.text.InputType
++import android.util.Log
+ import android.view.Gravity
+ import android.view.KeyEvent
+ import android.view.MotionEvent
+@@ -40,10 +35,11 @@
+ 
+     private val mainHandler = Handler(Looper.getMainLooper())
+     private val audioFeedback by lazy { KeyboardAudioFeedback(this) }
+-    private var speechRecognizer: SpeechRecognizer? = null
++    private lateinit var offlineAsr: OfflinePersianAsrEngine
+     private var wantListening = false
+     private var actuallyListening = false
+-    private var segmentedRequested = false
++    private var pendingStartFeedback = false
++    private var pendingStopFeedback = false
+     private var numberMode = false
+     private var symbolMode = false
+     private var shiftEnabled = false
+@@ -51,14 +47,6 @@
+     private var utterancePrefix = ""
+     private var lastPartialText = ""
+     private var speechComposingActive = false
+-    private var recognitionStartedAt = 0L
+-    private var recognizerReadyAt = 0L
+-    private var speechBeganAt = 0L
+-    private var firstVoiceActivityAt = 0L
+-    private var lastVoiceActivityAt = 0L
+-    private var lastSpeechTextAt = 0L
+-    private var hasSpeechTextThisSession = false
+-    private var finalizeRequestedByWatchdog = false
+     private var lastRmsUiAt = 0L
+     private var quickEmojiMode = false
+     private var cardPickerMode = false
+@@ -145,7 +133,7 @@
+     override fun onCreate() {
+         super.onCreate()
+         audioFeedback.prepare()
+-        prepareRecognizer()
++        offlineAsr = OfflinePersianAsrEngine(this, offlineAsrListener)
+     }
+ 
+     override fun onCreateInputView(): View {
+@@ -173,243 +161,167 @@
+     }
+ 
+     override fun onDestroy() {
++        if (::offlineAsr.isInitialized) offlineAsr.release()
+         mainHandler.removeCallbacksAndMessages(null)
+-        try { speechRecognizer?.destroy() } catch (_: Throwable) {}
+-        speechRecognizer = null
+         audioFeedback.release()
+         super.onDestroy()
+     }
+ 
+-    private fun prepareRecognizer() {
+-        if (!SpeechRecognizer.isRecognitionAvailable(this)) return
+-        try { speechRecognizer?.destroy() } catch (_: Throwable) {}
+-        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this).apply {
+-            setRecognitionListener(object : RecognitionListener {
+-                override fun onReadyForSpeech(params: Bundle?) {
+-                    utterancePrefix = computeUtterancePrefix()
+-                    lastPartialText = ""
+-                    recognizerReadyAt = SystemClock.elapsedRealtime()
+-                    speechBeganAt = 0L
+-                    firstVoiceActivityAt = 0L
+-                    lastVoiceActivityAt = 0L
+-                    lastSpeechTextAt = 0L
+-                    hasSpeechTextThisSession = false
+-                    finalizeRequestedByWatchdog = false
+-                    actuallyListening = true
+-                    setVoiceUi(true, if (isPersian()) "دارم می‌شنوم… ادامه بده" else "Listening… keep speaking")
+-                }
+-
+-                override fun onBeginning
