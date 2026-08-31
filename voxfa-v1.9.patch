@@ -1,0 +1,222 @@
+diff -ruN voxfa_v1_9_base/app/build.gradle.kts voxfa_v1_9_work/app/build.gradle.kts
+--- voxfa_v1_9_base/app/build.gradle.kts	2026-08-30 18:48:27.000000000 +0000
++++ voxfa_v1_9_work/app/build.gradle.kts	2026-08-31 06:12:13.817475554 +0000
+@@ -11,8 +11,8 @@
+         applicationId = "ir.voxfa.keyboard"
+         minSdk = 26
+         targetSdk = 35
+-        versionCode = 9
+-        versionName = "1.8.0-gboard-symbols"
++        versionCode = 10
++        versionName = "1.9.0-touch-fastpath"
+     }
+ 
+     buildTypes {
+diff -ruN voxfa_v1_9_base/app/src/main/java/ir/voxfa/keyboard/KeyboardAudioFeedback.kt voxfa_v1_9_work/app/src/main/java/ir/voxfa/keyboard/KeyboardAudioFeedback.kt
+--- voxfa_v1_9_base/app/src/main/java/ir/voxfa/keyboard/KeyboardAudioFeedback.kt	2026-08-30 15:58:19.000000000 +0000
++++ voxfa_v1_9_work/app/src/main/java/ir/voxfa/keyboard/KeyboardAudioFeedback.kt	2026-08-31 06:12:13.955293922 +0000
+@@ -3,22 +3,28 @@
+ import android.content.Context
+ import android.media.AudioManager
+ import android.media.ToneGenerator
++import android.os.Handler
++import android.os.HandlerThread
++import android.os.Process
+ 
+ /**
+  * Low-latency keyboard feedback backed by Android's familiar system key effects.
+- * No audio files are decoded and all playback calls are asynchronous.
++ * Audio work is kept off the IME main thread so a slow audio service can never
++ * delay character commits or swallow rapid taps.
+  */
+ class KeyboardAudioFeedback(context: Context) {
+ 
+     enum class KeyKind { STANDARD, SPACE, DELETE, RETURN }
+ 
+     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
++    private val audioThread = HandlerThread("VoxFa-Audio", Process.THREAD_PRIORITY_AUDIO).apply { start() }
++    private val audioHandler = Handler(audioThread.looper)
+     private val micTone = runCatching {
+         ToneGenerator(AudioManager.STREAM_SYSTEM, MIC_TONE_VOLUME)
+     }.getOrNull()
+ 
+     fun prepare() {
+-        runCatching { audioManager.loadSoundEffects() }
++        audioHandler.post { runCatching { audioManager.loadSoundEffects() } }
+     }
+ 
+     fun playKey(kind: KeyKind = KeyKind.STANDARD) {
+@@ -28,7 +34,9 @@
+             KeyKind.DELETE -> AudioManager.FX_KEYPRESS_DELETE
+             KeyKind.RETURN -> AudioManager.FX_KEYPRESS_RETURN
+         }
+-        runCatching { audioManager.playSoundEffect(effect, KEY_VOLUME) }
++        audioHandler.post {
++            runCatching { audioManager.playSoundEffect(effect, KEY_VOLUME) }
++        }
+     }
+ 
+     fun playMicrophoneStarted() {
+@@ -48,12 +56,17 @@
+     }
+ 
+     fun release() {
+-        runCatching { micTone?.release() }
++        audioHandler.post {
++            runCatching { micTone?.release() }
++            audioThread.quitSafely()
++        }
+     }
+ 
+     private fun playMicTone(tone: Int, durationMs: Int, fallback: Int) {
+-        val played = runCatching { micTone?.startTone(tone, durationMs) == true }.getOrDefault(false)
+-        if (!played) runCatching { audioManager.playSoundEffect(fallback, MIC_FALLBACK_VOLUME) }
++        audioHandler.post {
++            val played = runCatching { micTone?.startTone(tone, durationMs) == true }.getOrDefault(false)
++            if (!played) runCatching { audioManager.playSoundEffect(fallback, MIC_FALLBACK_VOLUME) }
++        }
+     }
+ 
+     private companion object {
+diff -ruN voxfa_v1_9_base/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt voxfa_v1_9_work/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt
+--- voxfa_v1_9_base/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt	2026-08-30 18:48:27.000000000 +0000
++++ voxfa_v1_9_work/app/src/main/java/ir/voxfa/keyboard/VoiceImeServicePro.kt	2026-08-31 06:12:13.817894996 +0000
+@@ -57,6 +57,7 @@
+     private var lastSpeechTextAt = 0L
+     private var hasSpeechTextThisSession = false
+     private var finalizeRequestedByWatchdog = false
++    private var lastRmsUiAt = 0L
+     private var quickEmojiMode = false
+     private var paletteIndex = 0
+ 
+@@ -207,11 +208,17 @@
+                         if (firstVoiceActivityAt == 0L) firstVoiceActivityAt = now
+                         lastVoiceActivityAt = now
+                     }
++                    // SpeechRecognizer may emit RMS callbacks very rapidly. Updating
++                    // multiple views on every callback competes with keyboard taps on
++                    // the main thread, so render at ~25 fps while keeping voice timing
++                    // measurements at full frequency.
++                    if (now - lastRmsUiAt < 40L) return
++                    lastRmsUiAt = now
+                     val pulse = ((rmsdB + 2f) / 12f).coerceIn(0f, 1f)
+                     waveformView?.setRmsDb(rmsdB)
+                     micButton?.apply {
+                         alpha = 0.86f + pulse * 0.14f
+-                        val scale = 1f + pulse * 0.07f
++                        val scale = 1f + pulse * 0.05f
+                         scaleX = scale
+                         scaleY = scale
+                     }
+@@ -736,8 +743,8 @@
+         contentDescription = description
+         setStyle(Color.TRANSPARENT, palette.text)
+         setOnClickListener {
+-            if (icon != KeyboardIconButton.Icon.MICROPHONE) audioFeedback.playKey()
+             action()
++            if (icon != KeyboardIconButton.Icon.MICROPHONE) audioFeedback.playKey()
+         }
+         layoutParams = LinearLayout.LayoutParams(0, -1, 1f).apply {
+             setMargins(dp(4), dp(2), dp(4), dp(2))
+@@ -762,6 +769,7 @@
+         setStyle(fill, palette.text, palette.outline)
+         elevation = dp(if (style == KeyStyle.NORMAL || style == KeyStyle.ACTION) 1 else 0).toFloat()
+         setOnClickListener {
++            action()
+             audioFeedback.playKey(
+                 if (icon == KeyboardIconButton.Icon.ENTER) {
+                     KeyboardAudioFeedback.KeyKind.RETURN
+@@ -769,7 +777,6 @@
+                     KeyboardAudioFeedback.KeyKind.STANDARD
+                 }
+             )
+-            action()
+         }
+         layoutParams = LinearLayout.LayoutParams(0, -1, weight).apply {
+             setMargins(dp(2), dp(2), dp(2), dp(2))
+@@ -822,7 +829,7 @@
+ 
+     private fun refreshSuggestions(immediate: Boolean = false) {
+         mainHandler.removeCallbacks(suggestionRefreshRunnable)
+-        if (immediate) refreshSuggestionsNow() else mainHandler.postDelayed(suggestionRefreshRunnable, 72L)
++        if (immediate) refreshSuggestionsNow() else mainHandler.postDelayed(suggestionRefreshRunnable, 160L)
+     }
+ 
+     private fun refreshSuggestionsNow() {
+@@ -976,7 +983,12 @@
+         }
+         elevation = dp(if (style == KeyStyle.NORMAL || style == KeyStyle.ACTION) 1 else 0).toFloat()
+         isSoundEffectsEnabled = false
++        isFocusable = false
++        // Keep Android's native touch/click pipeline intact. The pressed-state
++        // drawable above provides the visible flash without intercepting
++        // ACTION_UP/CANCEL, so a visual effect can never swallow a character.
+         setOnClickListener {
++            onClick()
+             audioFeedback.playKey(
+                 if (style == KeyStyle.SPACE) {
+                     KeyboardAudioFeedback.KeyKind.SPACE
+@@ -984,30 +996,6 @@
+                     KeyboardAudioFeedback.KeyKind.STANDARD
+                 }
+             )
+-            onClick()
+-        }
+-        setOnTouchListener { view, event ->
+-            when (event.actionMasked) {
+-                MotionEvent.ACTION_DOWN -> {
+-                    view.animate().cancel()
+-                    view.isPressed = true
+-                    view.scaleX = 0.965f
+-                    view.scaleY = 0.965f
+-                    true
+-                }
+-                MotionEvent.ACTION_UP -> {
+-                    view.performClick()
+-                    view.postDelayed({ view.isPressed = false }, 48L)
+-                    view.animate().scaleX(1f).scaleY(1f).setDuration(62L).start()
+-                    true
+-                }
+-                MotionEvent.ACTION_CANCEL -> {
+-                    view.isPressed = false
+-                    view.animate().scaleX(1f).scaleY(1f).setDuration(62L).start()
+-                    true
+-                }
+-                else -> true
+-            }
+         }
+         layoutParams = if (widthDp != null) {
+             LinearLayout.LayoutParams(dp(widthDp), -1).apply { setMargins(dp(2), dp(2), dp(2), dp(2)) }
+@@ -1035,26 +1023,21 @@
+             } else {
+                 LinearLayout.LayoutParams(0, -1, weight).apply { setMargins(dp(2), dp(2), dp(2), dp(2)) }
+             }
+-            setOnClickListener {
+-                audioFeedback.playKey(KeyboardAudioFeedback.KeyKind.DELETE)
+-                if (actuallyListening) stopSpeechLoop(clearComposing = true)
+-                deleteOne()
+-                refreshSuggestions()
+-            }
+-            setOnTouchListener { view, event ->
++            isSoundEffectsEnabled = false
++            setOnTouchListener { _, event ->
+                 when (event.actionMasked) {
+                     MotionEvent.ACTION_DOWN -> {
+                         if (actuallyListening) stopSpeechLoop(clearComposing = true)
+                         repeated = false
+-                        view.animate().scaleX(0.93f).scaleY(0.93f).alpha(0.68f).setDuration(55).start()
++                        // Delete on DOWN so even a later ACTION_CANCEL cannot lose the tap.
++                        deleteOne()
++                        audioFeedback.playKey(KeyboardAudioFeedback.KeyKind.DELETE)
+                         mainHandler.postDelayed(repeat, 370)
+                         true
+                     }
+                     MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+-                        view.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(90).start()
+                         mainHandler.removeCallbacks(repeat)
+-                        if (event.actionMasked == MotionEvent.ACTION_UP && !repeated) view.performClick()
+-                        else refreshSuggestions()
++                        refreshSuggestions()
+                         true
+                     }
+                     else -> true
