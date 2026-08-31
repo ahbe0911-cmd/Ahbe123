@@ -1,0 +1,106 @@
+d.isBlank()) return
++            val ic = currentInputConnection ?: return
++            speechComposingActive = true
++            ic.setComposingText(utterancePrefix + normalized, 1)
++            ic.finishComposingText()
++            speechComposingActive = false
++            lastPartialText = ""
++            utterancePrefix = computeUtterancePrefix()
++            showVoiceMessage(normalized)
++            if (wantListening) setVoiceUi(true, "ادامه بده…")
++        }
++
++        override fun onProcessing() {
++            if (wantListening) showVoiceMessage("در حال تبدیل صدا…")
++        }
++
++        override fun onMetrics(metrics: OfflinePersianAsrEngine.Metrics) {
++            Log.d(
++                "VoxFaASR",
++                "queue=${metrics.queueMs}ms infer=${"%.1f".format(Locale.US, metrics.inferenceMs)}ms " +
++                    "rtf=${"%.2f".format(Locale.US, metrics.realTimeFactor)} dropped=${metrics.droppedChunks}"
+             )
+-        } else {
+-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 850)
+-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1_700)
++        }
++
++        override fun onError(message: String, cause: Throwable?) {
++            Log.e("VoxFaASR", message, cause)
++            wantListening = false
++            actuallyListening = false
++            pendingStartFeedback = false
++            pendingStopFeedback = false
++            if (speechComposingActive) currentInputConnection?.finishComposingText()
++            speechComposingActive = false
++            setVoiceUi(false, message)
++        }
++
++        override fun onStopped() {
++            actuallyListening = false
++            micButton?.apply {
++                alpha = 1f
++                scaleX = 1f
++                scaleY = 1f
++            }
++            if (!wantListening) setVoiceUi(false, "میکروفون خاموش")
++            if (pendingStopFeedback) {
++                pendingStopFeedback = false
++                audioFeedback.playMicrophoneStopped()
++            }
+         }
+     }
+ 
+-    private fun buildBiasingStrings(): List<String> {
+-        val recent = currentInputConnection?.getTextBeforeCursor(280, 0)?.toString().orEmpty()
+-        val recentWords = Regex("[\\p{L}\\u200C]{3,}").findAll(recent)
+-            .map { it.value }.distinct().toList().takeLast(20)
+-        val common = if (isPersian()) {
+-            listOf("فارسی", "کیبورد", "تایپ صوتی", "میکروفون", "اندروید", "اینترنت", "برنامه", "کتابخانه", "دانلود", "تنظیمات", "پیام", "ارسال", "نصب")
+-        } else {
+-            listOf("keyboard", "voice typing", "Android", "microphone", "download", "settings", "message")
++    private val delayedOfflineStart = Runnable {
++        if (!wantListening || actuallyListening || !::offlineAsr.isInitialized) return@Runnable
++        if (!offlineAsr.start() && wantListening && !offlineAsr.isReady()) {
++            offlineAsr.prepare()
+         }
+-        return (recentWords + common).distinct().take(36)
+     }
+ 
+-    private fun normalizeSpeech(text: String): String = if (isPersian()) {
+-        SmartTextCorrector.correctSentence(VoiceTextNormalizer.normalize(text))
+-    } else text.trim()
+-
+-    private fun bestText(bundle: Bundle?): String = bundle
+-        ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+-        ?.firstOrNull { it.isNotBlank() }
+-        .orEmpty()
+-
+-    private fun commitSpeechBundle(bundle: Bundle?) {
+-        val text = normalizeSpeech(bestText(bundle))
+-        if (text.isBlank()) return
+-        speechComposingActive = true
+-        currentInputConnection?.setComposingText(utterancePrefix + text, 1)
+-        currentInputConnection?.finishComposingText()
+-        speechComposingActive = false
+-        hasSpeechTextThisSession = true
+-        lastSpeechTextAt = SystemClock.elapsedRealtime()
+-        showVoiceMessage(text)
++    /** Kept under the existing name so non-voice keyboard code does not need edits. */
++    private fun prepareRecognizer() {
++        if (wantListening && ::offlineAsr.isInitialized) offlineAsr.prepare()
+     }
+ 
++    private fun normalizeSpeech(text: String): String = PersianSpeechPostProcessor.process(text)
++
+     private fun startSpeechLoop(playFeedback: Boolean = false): Boolean {
+         if (!hasMicPermission()) {
+             wantListening = false
+-            setVoiceUi(false, if (isPersian()) "اجازه میکروفون لازم است" else "Microphone permission required")
++            setVoiceUi(false, "اجازه میکروفون لازم است")
+             return false
+         }
+-        if (speechRecognizer == null) prepareRecognizer()
+-        if (speechRecognizer == null) {
+-            wantListening = false
+-            setVoiceUi(false, if (isPersian()) "سرویس تشخیص گفتار در دسترس نیست" else "Speech service unavailable"
