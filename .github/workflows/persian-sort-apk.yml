@@ -1,6 +1,11 @@
 name: Build Persian Sort APK
 
 on:
+  push:
+    branches: [ persian-sort-app-v1 ]
+    paths:
+      - 'persian-sort-app/**'
+      - '.github/workflows/persian-sort-apk.yml'
   pull_request:
     branches: [ main ]
     paths:
@@ -61,11 +66,10 @@ jobs:
           retention-days: 30
 
       - name: Publish APK release
-        if: github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: persian-sort-v1.2.0
-          TARGET_SHA: ${{ github.event.pull_request.head.sha }}
+          TARGET_SHA: ${{ github.sha }}
         run: |
           gh release delete "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
           gh release create "$RELEASE_TAG" \
