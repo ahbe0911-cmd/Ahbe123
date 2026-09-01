@@ -49,13 +49,13 @@ jobs:
       - name: Prepare APK
         run: |
           mkdir -p out
-          cp persian-sort-app/app/build/outputs/apk/debug/app-debug.apk out/PersianSort-v1.1.0.apk
-          sha256sum out/PersianSort-v1.1.0.apk | tee out/PersianSort-v1.1.0.sha256
+          cp persian-sort-app/app/build/outputs/apk/debug/app-debug.apk out/PersianSort-v1.2.0.apk
+          sha256sum out/PersianSort-v1.2.0.apk | tee out/PersianSort-v1.2.0.sha256
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: PersianSort-APK-v1.1.0
+          name: PersianSort-APK-v1.2.0
           path: out/*
           if-no-files-found: error
           retention-days: 30
@@ -64,14 +64,14 @@ jobs:
         if: github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: persian-sort-v1.1.0
+          RELEASE_TAG: persian-sort-v1.2.0
           TARGET_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           gh release delete "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
           gh release create "$RELEASE_TAG" \
-            out/PersianSort-v1.1.0.apk \
-            out/PersianSort-v1.1.0.sha256 \
+            out/PersianSort-v1.2.0.apk \
+            out/PersianSort-v1.2.0.sha256 \
             --repo "$GITHUB_REPOSITORY" \
             --target "$TARGET_SHA" \
-            --title "Persian Sort v1.1.0" \
-            --notes "نسخه فیت‌شده برای نمایشگرهای کوچک با فونت وزیرمتن و رابط RTL بهینه"
+            --title "Persian Sort v1.2.0" \
+            --notes "نسخه حرفه‌ای با Auto Next هوشمند، Backspace بین فیلدها، پاک‌کردن هر فیلد، مرتب‌سازی دقیق فارسی، فونت وزیرمتن و رابط فشرده RTL"
