@@ -18,10 +18,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Apply compile fix
+      - name: Prepare Vazirmatn font
         run: |
-          sed -i 's/^            setTextColor(text)$/            setTextColor(this@MainActivity.text)/' persian-sort-app/app/src/main/kotlin/com/ahmad/persiansort/MainActivity.kt
-          grep -n 'setTextColor(this@MainActivity.text)' persian-sort-app/app/src/main/kotlin/com/ahmad/persiansort/MainActivity.kt
+          mkdir -p persian-sort-app/app/src/main/res/font
+          curl -fL --retry 3 'https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/fonts/ttf/Vazirmatn-Regular.ttf' -o persian-sort-app/app/src/main/res/font/vazirmatn_regular.ttf
+          curl -fL --retry 3 'https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/fonts/ttf/Vazirmatn-SemiBold.ttf' -o persian-sort-app/app/src/main/res/font/vazirmatn_semibold.ttf
+          test -s persian-sort-app/app/src/main/res/font/vazirmatn_regular.ttf
+          test -s persian-sort-app/app/src/main/res/font/vazirmatn_semibold.ttf
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -46,13 +49,13 @@ jobs:
       - name: Prepare APK
         run: |
           mkdir -p out
-          cp persian-sort-app/app/build/outputs/apk/debug/app-debug.apk out/PersianSort-v1.0.0.apk
-          sha256sum out/PersianSort-v1.0.0.apk | tee out/PersianSort-v1.0.0.sha256
+          cp persian-sort-app/app/build/outputs/apk/debug/app-debug.apk out/PersianSort-v1.1.0.apk
+          sha256sum out/PersianSort-v1.1.0.apk | tee out/PersianSort-v1.1.0.sha256
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: PersianSort-APK
+          name: PersianSort-APK-v1.1.0
           path: out/*
           if-no-files-found: error
           retention-days: 30
@@ -61,14 +64,14 @@ jobs:
         if: github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: persian-sort-v1.0.0
+          RELEASE_TAG: persian-sort-v1.1.0
           TARGET_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           gh release delete "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
           gh release create "$RELEASE_TAG" \
-            out/PersianSort-v1.0.0.apk \
-            out/PersianSort-v1.0.0.sha256 \
+            out/PersianSort-v1.1.0.apk \
+            out/PersianSort-v1.1.0.sha256 \
             --repo "$GITHUB_REPOSITORY" \
             --target "$TARGET_SHA" \
-            --title "Persian Sort v1.0.0" \
-            --notes "APK نصب‌شدنی برنامه مقایسه و مرتب‌سازی حروف و کلمات فارسی"
+            --title "Persian Sort v1.1.0" \
+            --notes "نسخه فیت‌شده برای نمایشگرهای کوچک با فونت وزیرمتن و رابط RTL بهینه"
