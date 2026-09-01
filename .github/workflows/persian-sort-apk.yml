@@ -1,0 +1,81 @@
+name: Build Persian Sort APK
+
+on:
+  push:
+    branches: [ persian-sort-app-v1 ]
+    paths:
+      - 'persian-sort-app/**'
+      - '.github/workflows/persian-sort-apk.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'persian-sort-app/**'
+      - '.github/workflows/persian-sort-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare Vazirmatn font
+        run: |
+          mkdir -p persian-sort-app/app/src/main/res/font
+          curl -fL --retry 3 'https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/fonts/ttf/Vazirmatn-Regular.ttf' -o persian-sort-app/app/src/main/res/font/vazirmatn_regular.ttf
+          curl -fL --retry 3 'https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/fonts/ttf/Vazirmatn-SemiBold.ttf' -o persian-sort-app/app/src/main/res/font/vazirmatn_semibold.ttf
+          test -s persian-sort-app/app/src/main/res/font/vazirmatn_regular.ttf
+          test -s persian-sort-app/app/src/main/res/font/vazirmatn_semibold.ttf
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android platform
+        run: yes | sdkmanager --licenses >/dev/null && sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+
+      - name: Set up Gradle 9.5
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.5.0'
+
+      - name: Build debug APK
+        run: gradle -p persian-sort-app :app:assembleDebug --stacktrace
+
+      - name: Prepare APK
+        run: |
+          mkdir -p out
+          cp persian-sort-app/app/build/outputs/apk/debug/app-debug.apk out/PersianSort-v1.2.1.apk
+          sha256sum out/PersianSort-v1.2.1.apk | tee out/PersianSort-v1.2.1.sha256
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PersianSort-APK-v1.2.1
+          path: out/*
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish APK release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: persian-sort-v1.2.1
+          TARGET_SHA: ${{ github.sha }}
+        run: |
+          gh release delete "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
+          gh release create "$RELEASE_TAG" \
+            out/PersianSort-v1.2.1.apk \
+            out/PersianSort-v1.2.1.sha256 \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$TARGET_SHA" \
+            --title "Persian Sort v1.2.1" \
+            --notes "نسخه 1.2.1 با اصلاح Window Insets و Edge-to-Edge برای Galaxy A54 و Android 15/16؛ هدر دیگر زیر Status Bar قرار نمی‌گیرد و چیدمان نسخه 1.2.0 بدون تغییر ظاهری حفظ شده است."
