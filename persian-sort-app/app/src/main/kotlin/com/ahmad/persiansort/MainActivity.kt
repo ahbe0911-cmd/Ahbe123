@@ -5,6 +5,7 @@ import android.content.Context
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -14,6 +15,7 @@ import android.text.TextWatcher
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowInsets
 import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.widget.LinearLayout
@@ -73,6 +75,13 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Android 11+ (and especially Android 15/16 with targetSdk 35+) uses edge-to-edge.
+        // We opt into it explicitly and then place the complete UI inside real system-bar insets.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            window.setDecorFitsSystemWindows(false)
+        }
+
         window.statusBarColor = bg
         window.navigationBarColor = surface
         window.decorView.systemUiVisibility =
@@ -107,6 +116,10 @@ class MainActivity : Activity() {
             ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         )
 
+        // Prevent the header from sitting under the status bar/camera cutout on devices
+        // such as Galaxy A54 while keeping the same compact layout on older Android versions.
+        applySystemBarInsets(scroll, root)
+
         root.addView(buildHeader())
         root.addView(space(6))
         root.addView(buildAlphabetCard())
@@ -119,6 +132,26 @@ class MainActivity : Activity() {
         root.addView(buildResultCard())
 
         return scroll
+    }
+
+    private fun applySystemBarInsets(host: View, root: LinearLayout) {
+        val horizontal = dps(13)
+        val baseTop = dps(7)
+        val baseBottom = dps(10)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            host.setOnApplyWindowInsetsListener { _, insets ->
+                val bars = insets.getInsets(WindowInsets.Type.systemBars())
+                val top = bars.top + baseTop
+                val bottom = bars.bottom + baseBottom
+                root.setPadding(horizontal, top, horizontal, bottom)
+                insets
+            }
+            host.requestApplyInsets()
+        } else {
+            // Pre edge-to-edge Android versions are already laid out below system bars.
+            root.setPadding(horizontal, dps(12), horizontal, baseBottom)
+        }
     }
 
     private fun buildHeader(): View {
