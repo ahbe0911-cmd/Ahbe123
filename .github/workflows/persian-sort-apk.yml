@@ -54,13 +54,13 @@ jobs:
       - name: Prepare APK
         run: |
           mkdir -p out
-          cp persian-sort-app/app/build/outputs/apk/debug/app-debug.apk out/PersianSort-v1.2.0.apk
-          sha256sum out/PersianSort-v1.2.0.apk | tee out/PersianSort-v1.2.0.sha256
+          cp persian-sort-app/app/build/outputs/apk/debug/app-debug.apk out/PersianSort-v1.2.1.apk
+          sha256sum out/PersianSort-v1.2.1.apk | tee out/PersianSort-v1.2.1.sha256
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: PersianSort-APK-v1.2.0
+          name: PersianSort-APK-v1.2.1
           path: out/*
           if-no-files-found: error
           retention-days: 30
@@ -68,14 +68,14 @@ jobs:
       - name: Publish APK release
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: persian-sort-v1.2.0
+          RELEASE_TAG: persian-sort-v1.2.1
           TARGET_SHA: ${{ github.sha }}
         run: |
           gh release delete "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
           gh release create "$RELEASE_TAG" \
-            out/PersianSort-v1.2.0.apk \
-            out/PersianSort-v1.2.0.sha256 \
+            out/PersianSort-v1.2.1.apk \
+            out/PersianSort-v1.2.1.sha256 \
             --repo "$GITHUB_REPOSITORY" \
             --target "$TARGET_SHA" \
-            --title "Persian Sort v1.2.0" \
-            --notes "نسخه حرفه‌ای با Auto Next هوشمند، Backspace بین فیلدها، پاک‌کردن هر فیلد، مرتب‌سازی دقیق فارسی، فونت وزیرمتن و رابط فشرده RTL"
+            --title "Persian Sort v1.2.1" \
+            --notes "نسخه 1.2.1 با اصلاح Window Insets و Edge-to-Edge برای Galaxy A54 و Android 15/16؛ هدر دیگر زیر Status Bar قرار نمی‌گیرد و چیدمان نسخه 1.2.0 بدون تغییر ظاهری حفظ شده است."
